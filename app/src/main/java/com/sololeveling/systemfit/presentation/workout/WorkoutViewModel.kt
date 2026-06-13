@@ -111,7 +111,9 @@ class WorkoutViewModel @Inject constructor(
     private fun skipRest() {
         if (isResting) {
             timerJob?.cancel()
-            onTimerComplete()
+            viewModelScope.launch {
+                onTimerComplete()
+            }
         }
     }
 
@@ -143,31 +145,29 @@ class WorkoutViewModel @Inject constructor(
     private fun startPenaltyCountdown(durationSeconds: Int) {
         penaltyTimerJob?.cancel()
         var remaining = durationSeconds
-        penaltyTimerJob = viewModelScope.launch(Dispatchers.Default) {
+        penaltyTimerJob = viewModelScope.launch {
             while (remaining >= 0) {
                 _uiState.value = WorkoutContract.UiState.PenaltyZone(remaining)
                 delay(1000)
                 remaining--
             }
             // Cleansing Completed!
-            viewModelScope.launch(Dispatchers.Main) {
-                val user = userRepository.getUser("player_1")
-                if (user != null) {
-                    val updatedUser = user.copy(penaltyActive = false)
-                    userRepository.saveUser(updatedUser)
-                    // Log penalty survival
-                    userRepository.logWorkout(
-                        WorkoutLogEntity(
-                            userId = "player_1",
-                            timestamp = System.currentTimeMillis(),
-                            xpEarned = 0,
-                            isCompleted = true,
-                            isPenaltyZone = true
-                        )
+            val user = userRepository.getUser("player_1")
+            if (user != null) {
+                val updatedUser = user.copy(penaltyActive = false)
+                userRepository.saveUser(updatedUser)
+                // Log penalty survival
+                userRepository.logWorkout(
+                    WorkoutLogEntity(
+                        userId = "player_1",
+                        timestamp = System.currentTimeMillis(),
+                        xpEarned = 0,
+                        isCompleted = true,
+                        isPenaltyZone = true
                     )
-                }
-                _uiState.value = WorkoutContract.UiState.Victory(xpEarned = 0, levelUp = false)
+                )
             }
+            _uiState.value = WorkoutContract.UiState.Victory(xpEarned = 0, levelUp = false)
         }
     }
 
@@ -258,7 +258,7 @@ class WorkoutViewModel @Inject constructor(
         timerJob?.cancel()
         expectedEndTimeMillis = SystemClock.elapsedRealtime() + (durationSeconds * 1000)
         
-        timerJob = viewModelScope.launch(Dispatchers.Default) {
+        timerJob = viewModelScope.launch {
             while (SystemClock.elapsedRealtime() < expectedEndTimeMillis) {
                 if (isPaused) return@launch
                 val remaining = ((expectedEndTimeMillis - SystemClock.elapsedRealtime()) / 1000).toInt()
@@ -276,21 +276,19 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
-    private fun onTimerComplete() {
-        viewModelScope.launch {
-            _sideEffects.send(WorkoutContract.SideEffect.PlaySystemChime)
-            if (isResting) {
-                isResting = false
-                currentExerciseIndex++
-                if (currentExerciseIndex >= (dailyQuest?.exercises?.size ?: 0)) {
-                    currentRoundIndex++
-                    currentExerciseIndex = 0
-                }
-            } else {
-                isResting = true
+    private suspend fun onTimerComplete() {
+        _sideEffects.send(WorkoutContract.SideEffect.PlaySystemChime)
+        if (isResting) {
+            isResting = false
+            currentExerciseIndex++
+            if (currentExerciseIndex >= (dailyQuest?.exercises?.size ?: 0)) {
+                currentRoundIndex++
+                currentExerciseIndex = 0
             }
-            startNextInterval()
+        } else {
+            isResting = true
         }
+        startNextInterval()
     }
 
     private fun finishQuest() {

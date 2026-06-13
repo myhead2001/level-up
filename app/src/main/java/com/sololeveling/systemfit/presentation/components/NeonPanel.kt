@@ -15,23 +15,26 @@ fun Modifier.neonPanel(
     borderRadius: Dp = 8.dp,
     blurRadius: Dp = 16.dp
 ) = this.drawBehind {
-    drawIntoCanvas { canvas ->
-        val paint = Paint()
-        val frameworkPaint = paint.asFrameworkPaint()
-        frameworkPaint.color = color.copy(alpha = 0.5f).toArgb()
-        frameworkPaint.maskFilter = android.graphics.BlurMaskFilter(
-            blurRadius.toPx(),
-            android.graphics.BlurMaskFilter.Blur.OUTER
-        )
+    val blurRadiusPx = blurRadius.toPx()
+    if (blurRadiusPx > 0f && color != Color.Transparent && color != Color.Unspecified) {
+        drawIntoCanvas { canvas ->
+            val paint = Paint()
+            val frameworkPaint = paint.asFrameworkPaint()
+            frameworkPaint.color = color.copy(alpha = 0.5f).toArgb()
+            frameworkPaint.maskFilter = android.graphics.BlurMaskFilter(
+                blurRadiusPx,
+                android.graphics.BlurMaskFilter.Blur.OUTER
+            )
 
-        canvas.drawRoundRect(
-            left = 0f,
-            top = 0f,
-            right = size.width,
-            bottom = size.height,
-            radiusX = borderRadius.toPx(),
-            radiusY = borderRadius.toPx(),
-            paint = paint
-        )
+            canvas.drawRoundRect(
+                left = 0f,
+                top = 0f,
+                right = size.width,
+                bottom = size.height,
+                radiusX = borderRadius.toPx(),
+                radiusY = borderRadius.toPx(),
+                paint = paint
+            )
+        }
     }
 }
