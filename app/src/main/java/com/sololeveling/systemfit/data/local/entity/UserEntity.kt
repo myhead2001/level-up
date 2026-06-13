@@ -23,5 +23,6 @@ data class UserEntity(
     val lastWorkoutTimestamp: Long,
     val penaltyActive: Boolean,
     val bpModeActive: Boolean = true,
-    val isDarkMode: Boolean = true
+    val isDarkMode: Boolean = true,
+    val skipIntro: Boolean = false
 )

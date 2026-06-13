@@ -16,7 +16,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Database(entities = [UserEntity::class, ExerciseEntity::class, WorkoutLogEntity::class], version = 3, exportSchema = false)
+@Database(entities = [UserEntity::class, ExerciseEntity::class, WorkoutLogEntity::class], version = 4, exportSchema = false)
 abstract class SystemDatabase : RoomDatabase() {
 
     abstract fun userDao(): UserDao
@@ -100,7 +100,8 @@ abstract class SystemDatabase : RoomDatabase() {
                 lastWorkoutTimestamp = 0L,
                 penaltyActive = false,
                 bpModeActive = true,
-                isDarkMode = true
+                isDarkMode = true,
+                skipIntro = false
             ))
         }
     }

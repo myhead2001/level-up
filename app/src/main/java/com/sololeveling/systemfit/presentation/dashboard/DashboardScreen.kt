@@ -173,6 +173,8 @@ fun DashboardScreen(
                             onUpdateCustomTimers = { act, rst -> viewModel.updateCustomTimers(act, rst) },
                             onToggleBpMode = { viewModel.toggleBpMode() },
                             onToggleDarkMode = { viewModel.toggleDarkMode() },
+                            onToggleSkipIntro = { viewModel.toggleSkipIntro() },
+                            onChangeStartRank = { viewModel.changeStartRank(it) },
                             onResetSystemData = { viewModel.resetSystemData() },
                             onBackupProfile = { viewModel.backupProfile() },
                             onRestoreProfile = { viewModel.restoreProfile(it) }
@@ -509,25 +511,25 @@ fun QuestsTabContent(
                         val roundsCalc = remember(user.level) { kotlin.math.min(2 + user.level / 3, 5) }
 
                         Text(
-                            text = "• Agility (AGI: ${user.agi}) -> Active Duration: ${activeCalc}s (Formula: 20 + AGI * 2s, Max 60s)",
+                            text = "• AGILITY (AGI: ${user.agi}) -> Active Workout: ${activeCalc} seconds\nYour agility directly increases the duration of active exercise intervals (max 60 seconds). Higher AGI means longer training time per set.",
                             color = MaterialTheme.colorScheme.onBackground,
                             fontSize = 12.sp,
-                            modifier = Modifier.padding(bottom = 6.dp)
+                            modifier = Modifier.padding(bottom = 8.dp)
                         )
                         Text(
-                            text = "• Vitality (VIT: ${user.vit}) -> Recovery Rest: ${restCalc}s (Formula: 90 - VIT * 3s, Min 30s)",
+                            text = "• VITALITY (VIT: ${user.vit}) -> Recovery Rest: ${restCalc} seconds\nYour vitality accelerates your physical recovery, shortening the required rest intervals between sets (min 30 seconds). Higher VIT lets you get back into action faster.",
                             color = MaterialTheme.colorScheme.onBackground,
                             fontSize = 12.sp,
-                            modifier = Modifier.padding(bottom = 6.dp)
+                            modifier = Modifier.padding(bottom = 8.dp)
                         )
                         Text(
-                            text = "• Level (LVL: ${user.level}) -> Quest Round Sets: $roundsCalc rounds (Formula: 2 + LVL / 3, Max 5)",
+                            text = "• LEVEL (LVL: ${user.level}) -> Set Difficulty: $roundsCalc rounds\nYour current level scales the overall volume of the quest. Higher levels increase the number of workout rounds to challenge your endurance (max 5 rounds).",
                             color = MaterialTheme.colorScheme.onBackground,
                             fontSize = 12.sp,
-                            modifier = Modifier.padding(bottom = 6.dp)
+                            modifier = Modifier.padding(bottom = 8.dp)
                         )
                         Text(
-                            text = "• Safety Mode: ${if (user.bpModeActive) "ACTIVE (HTN safe movements)" else "INACTIVE"}",
+                            text = "• SAFETY PROTOCOL -> ${if (user.bpModeActive) "ACTIVE (Hypertension Safe)" else "INACTIVE"}\nWhen active, the system filters out strenuous isometric holds (like planks and wall sits) to protect your cardiovascular system and keep blood pressure within safe limits.",
                             color = MaterialTheme.colorScheme.onBackground,
                             fontSize = 12.sp
                         )
@@ -846,6 +848,8 @@ fun ProfileTabContent(
     onUpdateCustomTimers: (Int, Int) -> Unit,
     onToggleBpMode: () -> Unit,
     onToggleDarkMode: () -> Unit,
+    onToggleSkipIntro: () -> Unit,
+    onChangeStartRank: (String) -> Unit,
     onResetSystemData: () -> Unit,
     onBackupProfile: () -> Unit,
     onRestoreProfile: ((Boolean) -> Unit) -> Unit
@@ -866,6 +870,7 @@ fun ProfileTabContent(
     var restTimer by remember { mutableStateOf(if (user.customRestDurationSeconds == 0) 30 else user.customRestDurationSeconds) }
 
     var useFormulaTimers by remember { mutableStateOf(user.customActiveDurationSeconds == 0) }
+    var showRankDialogFor by remember { mutableStateOf<String?>(null) }
 
     LazyColumn(
         modifier = Modifier
@@ -1018,6 +1023,75 @@ fun ProfileTabContent(
         }
 
         item {
+            // Skip Intro Toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("SKIP BOOT SEQUENCE INTRO", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
+                    Text("Bypass splash screen animations on app startup", color = Color.Gray, fontSize = 11.sp)
+                }
+                Switch(
+                    checked = user.skipIntro,
+                    onCheckedChange = { onToggleSkipIntro() },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = primaryColor,
+                        checkedTrackColor = primaryColor.copy(alpha = 0.5f)
+                    )
+                )
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        item {
+            Text("CHOOSE STARTING RANK", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp))
+                    .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val ranks = listOf("E", "D", "C", "B", "A", "S")
+                ranks.forEach { r ->
+                    val isCurrent = user.rank.startsWith(r)
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .border(
+                                1.dp,
+                                if (isCurrent) primaryColor else Color.DarkGray,
+                                RoundedCornerShape(8.dp)
+                            )
+                            .background(
+                                if (isCurrent) primaryColor.copy(alpha = 0.2f) else Color.Transparent,
+                                RoundedCornerShape(8.dp)
+                            )
+                            .clickable {
+                                showRankDialogFor = r
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = r,
+                            color = if (isCurrent) AlertGold else Color.Gray,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        item {
             // Timers Customization
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1155,6 +1229,55 @@ fun ProfileTabContent(
                 Text("RESET SYSTEM DATA", color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
             Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+
+    if (showRankDialogFor != null) {
+        val selectedRank = showRankDialogFor!!
+        Dialog(onDismissRequest = { showRankDialogFor = null }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(2.dp, primaryColor, RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.background, RoundedCornerShape(8.dp))
+                    .padding(24.dp)
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "CONFIRM RANK SELECTION",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = primaryColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Re-specing will reset your attributes to base level of the chosen ${selectedRank}-Rank. Current progress will be lost. Confirm?",
+                        color = MaterialTheme.colorScheme.onBackground,
+                        textAlign = TextAlign.Center,
+                        fontSize = 14.sp
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        TextButton(onClick = { showRankDialogFor = null }) {
+                            Text("CANCEL", color = Color.Gray)
+                        }
+                        Button(
+                            onClick = {
+                                onChangeStartRank(selectedRank)
+                                SoundManager.playLevelUp()
+                                Toast.makeText(context, "Rank updated to ${selectedRank}-Rank!", Toast.LENGTH_SHORT).show()
+                                showRankDialogFor = null
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
+                        ) {
+                            Text("CONFIRM", color = AbsoluteBlack, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
         }
     }
 }

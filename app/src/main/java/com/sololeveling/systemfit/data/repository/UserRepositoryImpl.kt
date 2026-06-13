@@ -98,7 +98,8 @@ class UserRepositoryImpl @Inject constructor(
                 lastWorkoutTimestamp = 0L,
                 penaltyActive = false,
                 bpModeActive = true,
-                isDarkMode = true
+                isDarkMode = true,
+                skipIntro = false
             )
         )
     }
@@ -124,6 +125,7 @@ class UserRepositoryImpl @Inject constructor(
             putBoolean("backup_penaltyActive", user.penaltyActive)
             putBoolean("backup_bpModeActive", user.bpModeActive)
             putBoolean("backup_isDarkMode", user.isDarkMode)
+            putBoolean("backup_skipIntro", user.skipIntro)
             apply()
         }
     }
@@ -149,7 +151,8 @@ class UserRepositoryImpl @Inject constructor(
             lastWorkoutTimestamp = sharedPrefs.getLong("backup_lastWorkoutTimestamp", 0L),
             penaltyActive = sharedPrefs.getBoolean("backup_penaltyActive", false),
             bpModeActive = sharedPrefs.getBoolean("backup_bpModeActive", true),
-            isDarkMode = sharedPrefs.getBoolean("backup_isDarkMode", true)
+            isDarkMode = sharedPrefs.getBoolean("backup_isDarkMode", true),
+            skipIntro = sharedPrefs.getBoolean("backup_skipIntro", false)
         )
         userDao.insertUser(backupUser)
         return true
@@ -173,7 +176,8 @@ class UserRepositoryImpl @Inject constructor(
         lastWorkoutTimestamp = lastWorkoutTimestamp,
         penaltyActive = penaltyActive,
         bpModeActive = bpModeActive,
-        isDarkMode = isDarkMode
+        isDarkMode = isDarkMode,
+        skipIntro = skipIntro
     )
 
     private fun User.toEntity() = UserEntity(
@@ -194,6 +198,7 @@ class UserRepositoryImpl @Inject constructor(
         lastWorkoutTimestamp = lastWorkoutTimestamp,
         penaltyActive = penaltyActive,
         bpModeActive = bpModeActive,
-        isDarkMode = isDarkMode
+        isDarkMode = isDarkMode,
+        skipIntro = skipIntro
     )
 }

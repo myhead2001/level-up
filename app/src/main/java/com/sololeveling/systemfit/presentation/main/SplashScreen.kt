@@ -22,6 +22,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sololeveling.systemfit.presentation.components.GlitchText
+import com.sololeveling.systemfit.presentation.utils.SoundManager
 import kotlinx.coroutines.delay
 
 @Composable
@@ -48,6 +49,7 @@ fun SplashScreen(
     val progressAnim = remember { Animatable(0f) }
 
     LaunchedEffect(Unit) {
+        SoundManager.playStartup()
         // Trigger typewriter bootlog lines
         for (i in bootLines.indices) {
             currentLineIndex = i

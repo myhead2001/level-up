@@ -1,87 +1,63 @@
 package com.sololeveling.systemfit.presentation.utils
 
-import android.media.AudioManager
-import android.media.ToneGenerator
+import android.content.Context
+import android.media.MediaPlayer
+import com.sololeveling.systemfit.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 object SoundManager {
-    private var toneGenerator: ToneGenerator? = null
+    private var appContext: Context? = null
 
-    init {
-        try {
-            toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 85)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+    fun init(context: Context) {
+        appContext = context.applicationContext
     }
 
-    private fun playTones(vararg tones: Pair<Int, Int>) {
+    private fun playSound(resId: Int) {
+        val ctx = appContext ?: return
         CoroutineScope(Dispatchers.IO).launch {
-            val tg = toneGenerator ?: try {
-                ToneGenerator(AudioManager.STREAM_MUSIC, 85).also { toneGenerator = it }
-            } catch (e: Exception) {
-                null
-            } ?: return@launch
-
-            for ((tone, duration) in tones) {
-                try {
-                    tg.startTone(tone, duration)
-                    delay(duration + 40L) // Wait for tone to finish plus a gap
-                } catch (e: Exception) {
-                    e.printStackTrace()
+            try {
+                val mediaPlayer = MediaPlayer.create(ctx, resId) ?: return@launch
+                mediaPlayer.setOnCompletionListener {
+                    it.release()
                 }
+                mediaPlayer.start()
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }
 
     fun playLevelUp() {
-        playTones(
-            ToneGenerator.TONE_DTMF_1 to 100,
-            ToneGenerator.TONE_DTMF_5 to 100,
-            ToneGenerator.TONE_DTMF_9 to 100,
-            ToneGenerator.TONE_DTMF_D to 150,
-            ToneGenerator.TONE_DTMF_A to 250
-        )
+        playSound(R.raw.level_up)
     }
 
     fun playClaimRewards() {
-        playTones(
-            ToneGenerator.TONE_DTMF_3 to 80,
-            ToneGenerator.TONE_DTMF_6 to 80,
-            ToneGenerator.TONE_DTMF_9 to 80,
-            ToneGenerator.TONE_DTMF_C to 150
-        )
+        playSound(R.raw.claim_rewards)
     }
 
     fun playPenalty() {
-        playTones(
-            ToneGenerator.TONE_DTMF_D to 150,
-            ToneGenerator.TONE_DTMF_9 to 150,
-            ToneGenerator.TONE_DTMF_5 to 150,
-            ToneGenerator.TONE_DTMF_1 to 300
-        )
+        playSound(R.raw.penalty)
     }
 
     fun playWindowOpen() {
-        playTones(
-            ToneGenerator.TONE_DTMF_5 to 80,
-            ToneGenerator.TONE_DTMF_9 to 120
-        )
+        playSound(R.raw.window_open)
     }
 
     fun playWindowClose() {
-        playTones(
-            ToneGenerator.TONE_DTMF_9 to 80,
-            ToneGenerator.TONE_DTMF_5 to 120
-        )
+        playSound(R.raw.click)
     }
 
     fun playNavigation() {
-        playTones(
-            ToneGenerator.TONE_DTMF_5 to 60
-        )
+        playSound(R.raw.click)
+    }
+
+    fun playStatBoost() {
+        playSound(R.raw.stat_boost)
+    }
+
+    fun playStartup() {
+        playSound(R.raw.startup)
     }
 }

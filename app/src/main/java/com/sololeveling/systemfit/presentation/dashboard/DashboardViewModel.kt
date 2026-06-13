@@ -107,6 +107,37 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    fun toggleSkipIntro() {
+        viewModelScope.launch {
+            val user = userState.value ?: return@launch
+            userRepository.saveUser(user.copy(skipIntro = !user.skipIntro))
+        }
+    }
+
+    fun changeStartRank(rank: String) {
+        viewModelScope.launch {
+            val user = userState.value ?: return@launch
+            val startingLevel = when (rank.uppercase()) {
+                "S" -> 50
+                "A" -> 40
+                "B" -> 30
+                "C" -> 20
+                "D" -> 10
+                else -> 1 // E-Rank
+            }
+            val allocatedPoints = (startingLevel - 1) * 3
+            val updatedUser = user.copy(
+                level = startingLevel,
+                currentXp = 0,
+                str = 10,
+                vit = 10,
+                agi = 10,
+                availableStatPoints = allocatedPoints
+            )
+            userRepository.saveUser(updatedUser)
+        }
+    }
+
     fun resetSystemData() {
         viewModelScope.launch {
             userRepository.resetDatabase("player_1")
