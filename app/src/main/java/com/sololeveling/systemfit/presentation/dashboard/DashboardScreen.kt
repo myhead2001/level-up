@@ -506,10 +506,9 @@ fun AnalyticsTabContent(user: User, logs: List<WorkoutLogEntity>) {
     val daysOfWeek = remember {
         val format = SimpleDateFormat("E", Locale.getDefault())
         val days = mutableListOf<String>()
-        val calendar = Calendar.getInstance()
         for (i in 0..6) {
             val targetDay = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -i) }
-            days.add(format.format(targetDay.time).substring(0, 1))
+            days.add(format.format(targetDay.time).take(1))
         }
         days.reversed()
     }
