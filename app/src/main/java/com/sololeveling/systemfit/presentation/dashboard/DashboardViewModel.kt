@@ -92,4 +92,24 @@ class DashboardViewModel @Inject constructor(
             ))
         }
     }
+
+    fun toggleBpMode() {
+        viewModelScope.launch {
+            val user = userState.value ?: return@launch
+            userRepository.saveUser(user.copy(bpModeActive = !user.bpModeActive))
+        }
+    }
+
+    fun toggleDarkMode() {
+        viewModelScope.launch {
+            val user = userState.value ?: return@launch
+            userRepository.saveUser(user.copy(isDarkMode = !user.isDarkMode))
+        }
+    }
+
+    fun resetSystemData() {
+        viewModelScope.launch {
+            userRepository.resetDatabase("player_1")
+        }
+    }
 }
