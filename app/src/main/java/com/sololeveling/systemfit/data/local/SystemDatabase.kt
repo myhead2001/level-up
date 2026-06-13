@@ -46,6 +46,15 @@ abstract class SystemDatabase : RoomDatabase() {
     private class SystemDatabaseCallback : RoomDatabase.Callback() {
         override fun onCreate(db: SupportSQLiteDatabase) {
             super.onCreate(db)
+            triggerPopulate()
+        }
+
+        override fun onDestructiveMigration(db: SupportSQLiteDatabase) {
+            super.onDestructiveMigration(db)
+            triggerPopulate()
+        }
+
+        private fun triggerPopulate() {
             INSTANCE?.let { database ->
                 CoroutineScope(Dispatchers.IO).launch {
                     populateDatabase(database.exerciseDao(), database.userDao())

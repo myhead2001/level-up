@@ -9,6 +9,7 @@ import com.sololeveling.systemfit.domain.model.User
 import com.sololeveling.systemfit.domain.repository.UserRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,6 +22,32 @@ class UserRepositoryImpl @Inject constructor(
 
     override fun getUserStream(userId: String): Flow<User?> {
         return userDao.getUserStream(userId).map { entity ->
+            if (entity == null) {
+                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                    if (userDao.getUser(userId) == null) {
+                        userDao.insertUser(
+                            UserEntity(
+                                id = userId,
+                                name = "Sung Jin-Woo",
+                                level = 1,
+                                currentXp = 0,
+                                str = 10,
+                                vit = 10,
+                                agi = 10,
+                                availableStatPoints = 0,
+                                currentStreak = 0,
+                                bestStreak = 0,
+                                theme = "SOLO_BLUE",
+                                targetWorkoutDaysPerWeek = 5,
+                                customActiveDurationSeconds = 0,
+                                customRestDurationSeconds = 0,
+                                lastWorkoutTimestamp = 0L,
+                                penaltyActive = false
+                            )
+                        )
+                    }
+                }
+            }
             entity?.toDomainModel()
         }
     }
