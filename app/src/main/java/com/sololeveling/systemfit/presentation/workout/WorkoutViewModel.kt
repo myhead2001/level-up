@@ -1,5 +1,7 @@
 package com.sololeveling.systemfit.presentation.workout
 
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -119,6 +121,15 @@ class WorkoutViewModel @Inject constructor(
 
     private fun triggerPanic() {
         timerJob?.cancel()
+
+        // Play system beep to confirm receipt of emergency command
+        try {
+            val toneGen = ToneGenerator(AudioManager.STREAM_ALARM, 100)
+            toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
+        } catch (t: Throwable) {
+            // Log or ignore in unit tests
+        }
+
         // Save workout result as partial immediately to log partial XP
         viewModelScope.launch {
             _sideEffects.send(WorkoutContract.SideEffect.TriggerHapticAlert)

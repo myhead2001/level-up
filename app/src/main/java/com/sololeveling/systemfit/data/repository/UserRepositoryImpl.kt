@@ -59,8 +59,10 @@ class UserRepositoryImpl @Inject constructor(
     override suspend fun saveUser(user: User) {
         val entity = user.toEntity()
         userDao.insertUser(entity)
-        // Sync to remote in background
-        remoteSyncSource.syncUser(user)
+        // Sync to remote in background (non-blocking)
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            remoteSyncSource.syncUser(user)
+        }
     }
 
     override fun getWorkoutLogsStream(userId: String): Flow<List<WorkoutLogEntity>> {
