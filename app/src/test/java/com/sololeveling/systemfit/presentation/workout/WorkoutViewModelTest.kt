@@ -4,6 +4,8 @@ import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import com.sololeveling.systemfit.domain.model.Exercise
 import com.sololeveling.systemfit.domain.model.ExerciseType
+import com.sololeveling.systemfit.domain.model.User
+import com.sololeveling.systemfit.domain.repository.UserRepository
 import com.sololeveling.systemfit.domain.usecase.EmergencyHaltUseCase
 import com.sololeveling.systemfit.domain.usecase.GenerateDailyQuestUseCase
 import com.sololeveling.systemfit.domain.usecase.GenerateDailyQuestUseCase.DailyQuest
@@ -28,6 +30,7 @@ class WorkoutViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private lateinit var viewModel: WorkoutViewModel
+    private val userRepository: UserRepository = mockk()
     private val generateDailyQuestUseCase: GenerateDailyQuestUseCase = mockk()
     private val processWorkoutResultUseCase: ProcessWorkoutResultUseCase = mockk()
     private val emergencyHaltUseCase: EmergencyHaltUseCase = mockk()
@@ -44,6 +47,8 @@ class WorkoutViewModelTest {
             restIntervalSeconds = 10
         )
         
+        coEvery { userRepository.getUser(any()) } returns User(id = "player_1")
+        coEvery { userRepository.saveUser(any()) } returns Unit
         coEvery { generateDailyQuestUseCase.invoke(any()) } returns dummyQuest
         coEvery { processWorkoutResultUseCase.invoke(any(), any(), any()) } returns mockk()
         mockkStatic(SystemClock::class)
@@ -53,6 +58,7 @@ class WorkoutViewModelTest {
         }
 
         viewModel = WorkoutViewModel(
+            userRepository,
             generateDailyQuestUseCase,
             processWorkoutResultUseCase,
             emergencyHaltUseCase

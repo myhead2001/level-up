@@ -2,6 +2,7 @@ package com.sololeveling.systemfit.presentation.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sololeveling.systemfit.data.local.entity.WorkoutLogEntity
 import com.sololeveling.systemfit.domain.model.User
 import com.sololeveling.systemfit.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,6 +24,13 @@ class DashboardViewModel @Inject constructor(
             initialValue = null
         )
 
+    val workoutLogsState: StateFlow<List<WorkoutLogEntity>> = userRepository.getWorkoutLogsStream("player_1")
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     fun allocateStatPoint(stat: String) {
         viewModelScope.launch {
             val user = userState.value ?: return@launch
@@ -35,6 +43,37 @@ class DashboardViewModel @Inject constructor(
                 }
                 userRepository.saveUser(updatedUser)
             }
+        }
+    }
+
+    fun renamePlayer(newName: String) {
+        viewModelScope.launch {
+            val user = userState.value ?: return@launch
+            userRepository.saveUser(user.copy(name = newName))
+        }
+    }
+
+    fun updateTheme(newTheme: String) {
+        viewModelScope.launch {
+            val user = userState.value ?: return@launch
+            userRepository.saveUser(user.copy(theme = newTheme))
+        }
+    }
+
+    fun updateTargetDays(days: Int) {
+        viewModelScope.launch {
+            val user = userState.value ?: return@launch
+            userRepository.saveUser(user.copy(targetWorkoutDaysPerWeek = days))
+        }
+    }
+
+    fun updateCustomTimers(activeSeconds: Int, restSeconds: Int) {
+        viewModelScope.launch {
+            val user = userState.value ?: return@launch
+            userRepository.saveUser(user.copy(
+                customActiveDurationSeconds = activeSeconds,
+                customRestDurationSeconds = restSeconds
+            ))
         }
     }
 }

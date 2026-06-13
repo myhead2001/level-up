@@ -13,9 +13,10 @@ interface WorkoutContract {
             val nextExerciseName: String?,
             val isRestPeriod: Boolean,
             val timeLeftSeconds: Int,
-            val totalTimeLeftSeconds: Int
+            val totalTimeLeftSeconds: Int,
+            val isPaused: Boolean = false
         ) : UiState
-        data class PenaltyZone(val penaltyDurationMinutes: Int) : UiState
+        data class PenaltyZone(val timeLeftSeconds: Int) : UiState
         data class Victory(val xpEarned: Int, val levelUp: Boolean) : UiState
     }
 
@@ -24,6 +25,10 @@ interface WorkoutContract {
         object SkipRest : UiEvent
         object TriggerPanicButton : UiEvent // Immediate Emergency Halt
         object ClaimRewards : UiEvent
+        object TogglePause : UiEvent
+        object NextExercise : UiEvent
+        object PrevExercise : UiEvent
+        object ExitWorkout : UiEvent
     }
 
     sealed interface SideEffect {

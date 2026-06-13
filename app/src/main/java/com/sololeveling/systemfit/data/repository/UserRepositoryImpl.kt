@@ -1,7 +1,9 @@
 package com.sololeveling.systemfit.data.repository
 
 import com.sololeveling.systemfit.data.local.dao.UserDao
+import com.sololeveling.systemfit.data.local.dao.WorkoutLogDao
 import com.sololeveling.systemfit.data.local.entity.UserEntity
+import com.sololeveling.systemfit.data.local.entity.WorkoutLogEntity
 import com.sololeveling.systemfit.data.remote.DataSource.RemoteSyncSource
 import com.sololeveling.systemfit.domain.model.User
 import com.sololeveling.systemfit.domain.repository.UserRepository
@@ -13,6 +15,7 @@ import javax.inject.Singleton
 @Singleton
 class UserRepositoryImpl @Inject constructor(
     private val userDao: UserDao,
+    private val workoutLogDao: WorkoutLogDao,
     private val remoteSyncSource: RemoteSyncSource
 ) : UserRepository {
 
@@ -33,25 +36,49 @@ class UserRepositoryImpl @Inject constructor(
         remoteSyncSource.syncUser(user)
     }
 
+    override fun getWorkoutLogsStream(userId: String): Flow<List<WorkoutLogEntity>> {
+        return workoutLogDao.getLogsStream(userId)
+    }
+
+    override suspend fun logWorkout(log: WorkoutLogEntity) {
+        workoutLogDao.insertLog(log)
+    }
+
     private fun UserEntity.toDomainModel() = User(
         id = id,
+        name = name,
         level = level,
         currentXp = currentXp,
         str = str,
         vit = vit,
         agi = agi,
         availableStatPoints = availableStatPoints,
-        currentStreak = currentStreak
+        currentStreak = currentStreak,
+        bestStreak = bestStreak,
+        theme = theme,
+        targetWorkoutDaysPerWeek = targetWorkoutDaysPerWeek,
+        customActiveDurationSeconds = customActiveDurationSeconds,
+        customRestDurationSeconds = customRestDurationSeconds,
+        lastWorkoutTimestamp = lastWorkoutTimestamp,
+        penaltyActive = penaltyActive
     )
 
     private fun User.toEntity() = UserEntity(
         id = id,
+        name = name,
         level = level,
         currentXp = currentXp,
         str = str,
         vit = vit,
         agi = agi,
         availableStatPoints = availableStatPoints,
-        currentStreak = currentStreak
+        currentStreak = currentStreak,
+        bestStreak = bestStreak,
+        theme = theme,
+        targetWorkoutDaysPerWeek = targetWorkoutDaysPerWeek,
+        customActiveDurationSeconds = customActiveDurationSeconds,
+        customRestDurationSeconds = customRestDurationSeconds,
+        lastWorkoutTimestamp = lastWorkoutTimestamp,
+        penaltyActive = penaltyActive
     )
 }

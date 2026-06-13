@@ -1,5 +1,6 @@
 package com.sololeveling.systemfit.domain.usecase
 
+import com.sololeveling.systemfit.data.local.entity.WorkoutLogEntity
 import com.sololeveling.systemfit.domain.model.User
 import com.sololeveling.systemfit.domain.repository.UserRepository
 import javax.inject.Inject
@@ -32,13 +33,46 @@ class ProcessWorkoutResultUseCase @Inject constructor(
             requiredXpForNextLevel = (100 * currentLevel.toDouble().pow(1.5)).toInt()
         }
 
-        val updatedStreak = if (isPartialCompletion) user.currentStreak else user.currentStreak + 1
+        val now = System.currentTimeMillis()
+        var currentStreak = user.currentStreak
+        var bestStreak = user.bestStreak
+
+        if (!isPartialCompletion) {
+            val lastWorkoutTime = user.lastWorkoutTimestamp
+            if (lastWorkoutTime == 0L) {
+                currentStreak = 1
+            } else {
+                val daysDiff = ((now - lastWorkoutTime) / (1000 * 60 * 60 * 24)).toInt()
+                if (daysDiff == 1) {
+                    currentStreak++
+                } else if (daysDiff > 1) {
+                    currentStreak = 1
+                }
+                // If daysDiff == 0, keep currentStreak unchanged
+            }
+            if (currentStreak > bestStreak) {
+                bestStreak = currentStreak
+            }
+        }
 
         val updatedUser = user.copy(
             level = currentLevel,
             currentXp = currentXp,
             availableStatPoints = availableStatPoints,
-            currentStreak = updatedStreak
+            currentStreak = currentStreak,
+            bestStreak = bestStreak,
+            lastWorkoutTimestamp = now,
+            penaltyActive = false // Clear any active penalty upon completion
+        )
+
+        userRepository.logWorkout(
+            WorkoutLogEntity(
+                userId = userId,
+                timestamp = now,
+                xpEarned = finalXpEarned,
+                isCompleted = !isPartialCompletion,
+                isPenaltyZone = false
+            )
         )
 
         userRepository.saveUser(updatedUser)

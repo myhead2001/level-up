@@ -47,7 +47,7 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.8.2")
 
     // Jetpack Compose (BOM)
-    implementation(platform("androidx.compose:compose-bom:2024.02.00"))
+    implementation(platform("androidx.compose:compose-bom:2024.06.00"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
@@ -72,7 +72,7 @@ dependencies {
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     androidTestImplementation("androidx.test:runner:1.6.1")
     androidTestImplementation("androidx.test:rules:1.6.1")
-    androidTestImplementation(platform("androidx.compose:compose-bom:2024.02.00"))
+    androidTestImplementation(platform("androidx.compose:compose-bom:2024.06.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     androidTestImplementation("app.cash.turbine:turbine:1.1.0")
     androidTestImplementation("com.google.truth:truth:1.4.2")
@@ -93,4 +93,13 @@ dependencies {
     // Image/GIF Loading
     implementation("io.coil-kt:coil-compose:2.5.0")
     implementation("io.coil-kt:coil-gif:2.5.0")
+}
+
+configurations.all {
+    resolutionStrategy {
+        force("androidx.test.espresso:espresso-core:3.6.1")
+        force("androidx.test:runner:1.6.1")
+        force("androidx.test:rules:1.6.1")
+        force("androidx.test.ext:junit:1.2.1")
+    }
 }

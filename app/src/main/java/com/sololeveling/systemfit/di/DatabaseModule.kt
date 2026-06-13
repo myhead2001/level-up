@@ -4,6 +4,7 @@ import android.content.Context
 import com.sololeveling.systemfit.data.local.SystemDatabase
 import com.sololeveling.systemfit.data.local.dao.ExerciseDao
 import com.sololeveling.systemfit.data.local.dao.UserDao
+import com.sololeveling.systemfit.data.local.dao.WorkoutLogDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -29,5 +30,10 @@ object DatabaseModule {
     @Provides
     fun provideExerciseDao(database: SystemDatabase): ExerciseDao {
         return database.exerciseDao()
+    }
+
+    @Provides
+    fun provideWorkoutLogDao(database: SystemDatabase): WorkoutLogDao {
+        return database.workoutLogDao()
     }
 }

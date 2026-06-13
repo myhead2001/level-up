@@ -7,6 +7,7 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.toArgb
 import com.sololeveling.systemfit.presentation.theme.SystemBlue
 
 fun Modifier.neonPanel(
@@ -17,7 +18,7 @@ fun Modifier.neonPanel(
     drawIntoCanvas { canvas ->
         val paint = Paint()
         val frameworkPaint = paint.asFrameworkPaint()
-        frameworkPaint.color = color.copy(alpha = 0.5f).hashCode()
+        frameworkPaint.color = color.copy(alpha = 0.5f).toArgb()
         frameworkPaint.maskFilter = android.graphics.BlurMaskFilter(
             blurRadius.toPx(),
             android.graphics.BlurMaskFilter.Blur.OUTER

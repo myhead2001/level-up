@@ -7,18 +7,21 @@ import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.sololeveling.systemfit.data.local.dao.ExerciseDao
 import com.sololeveling.systemfit.data.local.dao.UserDao
+import com.sololeveling.systemfit.data.local.dao.WorkoutLogDao
 import com.sololeveling.systemfit.data.local.entity.ExerciseEntity
 import com.sololeveling.systemfit.data.local.entity.UserEntity
+import com.sololeveling.systemfit.data.local.entity.WorkoutLogEntity
 import com.sololeveling.systemfit.domain.model.ExerciseType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Database(entities = [UserEntity::class, ExerciseEntity::class], version = 1, exportSchema = false)
+@Database(entities = [UserEntity::class, ExerciseEntity::class, WorkoutLogEntity::class], version = 2, exportSchema = false)
 abstract class SystemDatabase : RoomDatabase() {
 
     abstract fun userDao(): UserDao
     abstract fun exerciseDao(): ExerciseDao
+    abstract fun workoutLogDao(): WorkoutLogDao
 
     companion object {
         @Volatile
@@ -32,6 +35,7 @@ abstract class SystemDatabase : RoomDatabase() {
                     "system_fit_database"
                 )
                     .addCallback(SystemDatabaseCallback())
+                    .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance
@@ -71,13 +75,21 @@ abstract class SystemDatabase : RoomDatabase() {
             // Seed initial user as well
             userDao.insertUser(UserEntity(
                 id = "player_1",
+                name = "Sung Jin-Woo",
                 level = 1,
                 currentXp = 0,
                 str = 10,
                 vit = 10,
                 agi = 10,
                 availableStatPoints = 0,
-                currentStreak = 0
+                currentStreak = 0,
+                bestStreak = 0,
+                theme = "SOLO_BLUE",
+                targetWorkoutDaysPerWeek = 5,
+                customActiveDurationSeconds = 0,
+                customRestDurationSeconds = 0,
+                lastWorkoutTimestamp = 0L,
+                penaltyActive = false
             ))
         }
     }

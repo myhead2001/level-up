@@ -3,7 +3,9 @@ package com.sololeveling.systemfit.presentation.workout
 import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sololeveling.systemfit.data.local.entity.WorkoutLogEntity
 import com.sololeveling.systemfit.domain.model.User
+import com.sololeveling.systemfit.domain.repository.UserRepository
 import com.sololeveling.systemfit.domain.usecase.EmergencyHaltUseCase
 import com.sololeveling.systemfit.domain.usecase.GenerateDailyQuestUseCase
 import com.sololeveling.systemfit.domain.usecase.ProcessWorkoutResultUseCase
@@ -22,6 +24,7 @@ import kotlin.math.max
 
 @HiltViewModel
 class WorkoutViewModel @Inject constructor(
+    private val userRepository: UserRepository,
     private val generateDailyQuestUseCase: GenerateDailyQuestUseCase,
     private val processWorkoutResultUseCase: ProcessWorkoutResultUseCase,
     private val emergencyHaltUseCase: EmergencyHaltUseCase
@@ -35,6 +38,7 @@ class WorkoutViewModel @Inject constructor(
 
     private var expectedEndTimeMillis = 0L
     private var timerJob: Job? = null
+    private var penaltyTimerJob: Job? = null
     
     // Internal state variables for active combat
     private var dailyQuest: GenerateDailyQuestUseCase.DailyQuest? = null
@@ -42,6 +46,7 @@ class WorkoutViewModel @Inject constructor(
     private var currentExerciseIndex = 0
     private var isResting = false
     private var totalWorkoutSeconds = 0
+    private var isPaused = false
 
     init {
         loadSetup()
@@ -49,12 +54,33 @@ class WorkoutViewModel @Inject constructor(
 
     private fun loadSetup() {
         viewModelScope.launch {
-            // For now, assume a dummy user context. In a real app, this comes from a flow.
-            val dummyUser = User(id = "player_1", level = 1, str = 10, vit = 10, agi = 10)
-            dailyQuest = generateDailyQuestUseCase(dummyUser)
+            val user = userRepository.getUser("player_1") ?: User(id = "player_1")
+
+            // 1. Check for daily skipped workouts (if last workout was >24 hours ago, trigger penalty)
+            val now = System.currentTimeMillis()
+            val lastWorkout = user.lastWorkoutTimestamp
+            var activeUser = user
+
+            if (lastWorkout > 0L) {
+                val daysDiff = ((now - lastWorkout) / (1000 * 60 * 60 * 24)).toInt()
+                if (daysDiff >= 2) {
+                    // Missed an entire calendar day!
+                    activeUser = user.copy(penaltyActive = true, currentStreak = 0)
+                    userRepository.saveUser(activeUser)
+                }
+            }
+
+            // 2. If penalty is active, redirect straight to Penalty Zone
+            if (activeUser.penaltyActive) {
+                startPenaltyZone()
+                return@launch
+            }
+
+            // 3. Normal setup
+            dailyQuest = generateDailyQuestUseCase(activeUser)
             dailyQuest?.let {
                 val totalDurationMinutes = (it.totalTargetRounds * it.exercises.size * (it.activeIntervalSeconds + it.restIntervalSeconds)) / 60
-                _uiState.value = WorkoutContract.UiState.Setup(totalDurationMinutes, it.totalTargetRounds)
+                _uiState.value = WorkoutContract.UiState.Setup(max(1, totalDurationMinutes), it.totalTargetRounds)
             }
         }
     }
@@ -65,6 +91,10 @@ class WorkoutViewModel @Inject constructor(
             WorkoutContract.UiEvent.SkipRest -> skipRest()
             WorkoutContract.UiEvent.TriggerPanicButton -> triggerPanic()
             WorkoutContract.UiEvent.ClaimRewards -> claimRewards()
+            WorkoutContract.UiEvent.TogglePause -> togglePause()
+            WorkoutContract.UiEvent.NextExercise -> nextExercise()
+            WorkoutContract.UiEvent.PrevExercise -> prevExercise()
+            WorkoutContract.UiEvent.ExitWorkout -> exitWorkout()
         }
     }
 
@@ -74,6 +104,7 @@ class WorkoutViewModel @Inject constructor(
         currentRoundIndex = 1
         currentExerciseIndex = 0
         isResting = false
+        isPaused = false
         startNextInterval()
     }
 
@@ -86,24 +117,106 @@ class WorkoutViewModel @Inject constructor(
 
     private fun triggerPanic() {
         timerJob?.cancel()
-        val cooldown = emergencyHaltUseCase.invokeHalt()
-        _uiState.value = WorkoutContract.UiState.PenaltyZone(cooldown.remainingCooldownSeconds / 60)
-        
+        // Save workout result as partial immediately to log partial XP
         viewModelScope.launch {
             _sideEffects.send(WorkoutContract.SideEffect.TriggerHapticAlert)
-            // System tone generation is handled by side effect logic in UI usually
-            
-            // Process penalty XP immediately
             processWorkoutResultUseCase(
                 userId = "player_1",
                 isPartialCompletion = true,
-                baseXpEarned = 100 // Example base xp for the quest
+                baseXpEarned = 100
             )
+            // Trigger penalty flag and start Penalty Zone
+            val user = userRepository.getUser("player_1")
+            if (user != null) {
+                userRepository.saveUser(user.copy(penaltyActive = true))
+            }
+            startPenaltyZone()
         }
     }
 
+    private fun startPenaltyZone() {
+        timerJob?.cancel()
+        _uiState.value = WorkoutContract.UiState.PenaltyZone(180) // 180 seconds countdown
+        startPenaltyCountdown(180)
+    }
+
+    private fun startPenaltyCountdown(durationSeconds: Int) {
+        penaltyTimerJob?.cancel()
+        var remaining = durationSeconds
+        penaltyTimerJob = viewModelScope.launch(Dispatchers.Default) {
+            while (remaining >= 0) {
+                _uiState.value = WorkoutContract.UiState.PenaltyZone(remaining)
+                delay(1000)
+                remaining--
+            }
+            // Cleansing Completed!
+            viewModelScope.launch(Dispatchers.Main) {
+                val user = userRepository.getUser("player_1")
+                if (user != null) {
+                    val updatedUser = user.copy(penaltyActive = false)
+                    userRepository.saveUser(updatedUser)
+                    // Log penalty survival
+                    userRepository.logWorkout(
+                        WorkoutLogEntity(
+                            userId = "player_1",
+                            timestamp = System.currentTimeMillis(),
+                            xpEarned = 0,
+                            isCompleted = true,
+                            isPenaltyZone = true
+                        )
+                    )
+                }
+                _uiState.value = WorkoutContract.UiState.Victory(xpEarned = 0, levelUp = false)
+            }
+        }
+    }
+
+    private fun togglePause() {
+        val state = _uiState.value
+        if (state is WorkoutContract.UiState.ActiveCombat) {
+            isPaused = !isPaused
+            _uiState.value = state.copy(isPaused = isPaused)
+            if (isPaused) {
+                timerJob?.cancel()
+            } else {
+                startCountdown(state.timeLeftSeconds)
+            }
+        }
+    }
+
+    private fun nextExercise() {
+        timerJob?.cancel()
+        val quest = dailyQuest ?: return
+        isResting = false
+        currentExerciseIndex++
+        if (currentExerciseIndex >= quest.exercises.size) {
+            currentRoundIndex++
+            currentExerciseIndex = 0
+        }
+        startNextInterval()
+    }
+
+    private fun prevExercise() {
+        timerJob?.cancel()
+        isResting = false
+        if (currentExerciseIndex > 0) {
+            currentExerciseIndex--
+        } else if (currentRoundIndex > 1) {
+            currentRoundIndex--
+            currentExerciseIndex = (dailyQuest?.exercises?.size ?: 1) - 1
+        }
+        startNextInterval()
+    }
+
+    private fun exitWorkout() {
+        timerJob?.cancel()
+        penaltyTimerJob?.cancel()
+        loadSetup()
+    }
+
     private fun claimRewards() {
-        // Handle claiming logic or navigation via side effect if needed
+        // Clear screen and exit
+        exitWorkout()
     }
 
     private fun startNextInterval() {
@@ -112,15 +225,6 @@ class WorkoutViewModel @Inject constructor(
         if (currentRoundIndex > quest.totalTargetRounds) {
             finishQuest()
             return
-        }
-
-        if (currentExerciseIndex >= quest.exercises.size) {
-            currentRoundIndex++
-            currentExerciseIndex = 0
-            if (currentRoundIndex > quest.totalTargetRounds) {
-                finishQuest()
-                return
-            }
         }
 
         val currentEx = quest.exercises[currentExerciseIndex]
@@ -141,10 +245,13 @@ class WorkoutViewModel @Inject constructor(
             nextExerciseName = nextEx,
             isRestPeriod = isResting,
             timeLeftSeconds = duration,
-            totalTimeLeftSeconds = totalWorkoutSeconds // Decrement in actual implementation
+            totalTimeLeftSeconds = totalWorkoutSeconds,
+            isPaused = isPaused
         )
         
-        startCountdown(duration)
+        if (!isPaused) {
+            startCountdown(duration)
+        }
     }
 
     private fun startCountdown(durationSeconds: Int) {
@@ -153,9 +260,10 @@ class WorkoutViewModel @Inject constructor(
         
         timerJob = viewModelScope.launch(Dispatchers.Default) {
             while (SystemClock.elapsedRealtime() < expectedEndTimeMillis) {
+                if (isPaused) return@launch
                 val remaining = ((expectedEndTimeMillis - SystemClock.elapsedRealtime()) / 1000).toInt()
                 updateTimerState(max(0, remaining))
-                delay(200) // High frequency sampling keeps precision without CPU utilization spikes
+                delay(200)
             }
             onTimerComplete()
         }
@@ -174,6 +282,10 @@ class WorkoutViewModel @Inject constructor(
             if (isResting) {
                 isResting = false
                 currentExerciseIndex++
+                if (currentExerciseIndex >= (dailyQuest?.exercises?.size ?: 0)) {
+                    currentRoundIndex++
+                    currentExerciseIndex = 0
+                }
             } else {
                 isResting = true
             }
@@ -183,16 +295,26 @@ class WorkoutViewModel @Inject constructor(
 
     private fun finishQuest() {
         viewModelScope.launch {
-            // Process standard XP
-            processWorkoutResultUseCase(
+            val userBefore = userRepository.getUser("player_1")
+            val updatedUser = processWorkoutResultUseCase(
                 userId = "player_1",
                 isPartialCompletion = false,
                 baseXpEarned = 200
             )
+            val levelUp = if (userBefore != null && updatedUser != null) {
+                updatedUser.level > userBefore.level
+            } else false
+
             _uiState.value = WorkoutContract.UiState.Victory(
                 xpEarned = 200,
-                levelUp = true // Dummy flag, actual check depends on previous vs new level
+                levelUp = levelUp
             )
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        timerJob?.cancel()
+        penaltyTimerJob?.cancel()
     }
 }

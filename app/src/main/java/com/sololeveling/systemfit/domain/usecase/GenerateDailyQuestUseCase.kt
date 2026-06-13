@@ -18,11 +18,19 @@ class GenerateDailyQuestUseCase @Inject constructor(
     )
 
     suspend operator fun invoke(user: User): DailyQuest {
-        // Active Interval Duration: min(20 + (AGI * 2), 60)
-        val activeInterval = min(20 + (user.agi * 2), 60)
+        // Active Interval Duration: respect custom timer if set, otherwise fallback to formula
+        val activeInterval = if (user.customActiveDurationSeconds > 0) {
+            user.customActiveDurationSeconds
+        } else {
+            min(20 + (user.agi * 2), 60)
+        }
         
-        // Rest Interval Duration: max(90 - (VIT * 3), 30)
-        val restInterval = max(90 - (user.vit * 3), 30)
+        // Rest Interval Duration: respect custom timer if set, otherwise fallback to formula
+        val restInterval = if (user.customRestDurationSeconds > 0) {
+            user.customRestDurationSeconds
+        } else {
+            max(90 - (user.vit * 3), 30)
+        }
         
         // Total Target Rounds: min(2 + floor(Level / 3), 5)
         val totalRounds = min(2 + (user.level / 3), 5)

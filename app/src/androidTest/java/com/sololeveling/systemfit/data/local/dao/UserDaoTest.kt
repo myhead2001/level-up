@@ -36,7 +36,24 @@ class UserDaoTest {
 
     @Test
     fun insertAndGetUser() = runTest {
-        val user = UserEntity("player_1", level = 2, currentXp = 50, str = 12, vit = 10, agi = 10, availableStatPoints = 1, currentStreak = 2)
+        val user = UserEntity(
+            id = "player_1",
+            name = "Sung Jin-Woo",
+            level = 2,
+            currentXp = 50,
+            str = 12,
+            vit = 10,
+            agi = 10,
+            availableStatPoints = 1,
+            currentStreak = 2,
+            bestStreak = 2,
+            theme = "SOLO_BLUE",
+            targetWorkoutDaysPerWeek = 5,
+            customActiveDurationSeconds = 0,
+            customRestDurationSeconds = 0,
+            lastWorkoutTimestamp = 0L,
+            penaltyActive = false
+        )
         userDao.insertUser(user)
 
         val loaded = userDao.getUser("player_1")
@@ -46,7 +63,24 @@ class UserDaoTest {
 
     @Test
     fun getUserStreamEmitsUpdates() = runTest {
-        val user = UserEntity("player_1", level = 2, currentXp = 50, str = 12, vit = 10, agi = 10, availableStatPoints = 1, currentStreak = 2)
+        val user = UserEntity(
+            id = "player_1",
+            name = "Sung Jin-Woo",
+            level = 2,
+            currentXp = 50,
+            str = 12,
+            vit = 10,
+            agi = 10,
+            availableStatPoints = 1,
+            currentStreak = 2,
+            bestStreak = 2,
+            theme = "SOLO_BLUE",
+            targetWorkoutDaysPerWeek = 5,
+            customActiveDurationSeconds = 0,
+            customRestDurationSeconds = 0,
+            lastWorkoutTimestamp = 0L,
+            penaltyActive = false
+        )
         userDao.insertUser(user)
 
         userDao.getUserStream("player_1").test {
