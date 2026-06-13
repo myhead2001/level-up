@@ -33,8 +33,10 @@ import com.sololeveling.systemfit.domain.usecase.GenerateDailyQuestUseCase
 import com.sololeveling.systemfit.presentation.components.neonPanel
 import com.sololeveling.systemfit.presentation.components.GlitchText
 import com.sololeveling.systemfit.presentation.utils.SoundManager
+import android.content.Context
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.draw.rotate
 import com.sololeveling.systemfit.presentation.theme.AbsoluteBlack
 import com.sololeveling.systemfit.presentation.theme.AlertGold
 import java.text.SimpleDateFormat
@@ -872,6 +874,12 @@ fun ProfileTabContent(
     var useFormulaTimers by remember { mutableStateOf(user.customActiveDurationSeconds == 0) }
     var showRankDialogFor by remember { mutableStateOf<String?>(null) }
 
+    var isProfileExpanded by remember { mutableStateOf(false) }
+    var isLookExpanded by remember { mutableStateOf(false) }
+    var isAudioExpanded by remember { mutableStateOf(false) }
+    var isControlsExpanded by remember { mutableStateOf(false) }
+    var isDataExpanded by remember { mutableStateOf(false) }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -890,343 +898,421 @@ fun ProfileTabContent(
             Spacer(modifier = Modifier.height(24.dp))
         }
 
+        // 1. PROFILE CONFIGURATION
         item {
-            // Theme Selector
-            Text("SYSTEM LOOK (THEME)", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(8.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp))
-                    .clickable { isThemeDropdownExpanded = true }
-                    .padding(16.dp)
+            SettingsFolder(
+                title = "PROFILE CONFIGURATION",
+                icon = Icons.Default.Person,
+                expanded = isProfileExpanded,
+                onToggle = { isProfileExpanded = !isProfileExpanded; SoundManager.playNavigation() }
             ) {
+                // Workout Days Goal
+                Text("TARGET WORKOUT DAYS PER WEEK", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp))
+                        .padding(8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = {
+                            if (workoutDays > 3) {
+                                workoutDays--
+                                onUpdateTargetDays(workoutDays)
+                            }
+                        },
+                        enabled = workoutDays > 3
+                    ) {
+                        Text("-", color = if (workoutDays > 3) primaryColor else Color.Gray, fontSize = 24.sp)
+                    }
+                    Text("$workoutDays Days", color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    IconButton(
+                        onClick = {
+                            if (workoutDays < 7) {
+                                workoutDays++
+                                onUpdateTargetDays(workoutDays)
+                            }
+                        },
+                        enabled = workoutDays < 7
+                    ) {
+                        Text("+", color = if (workoutDays < 7) primaryColor else Color.Gray, fontSize = 24.sp)
+                    }
+                }
+            }
+        }
+
+        // 2. SYSTEM LOOK & THEME
+        item {
+            SettingsFolder(
+                title = "SYSTEM LOOK & THEME",
+                icon = Icons.Default.Star,
+                expanded = isLookExpanded,
+                onToggle = { isLookExpanded = !isLookExpanded; SoundManager.playNavigation() }
+            ) {
+                // Theme Selector
+                Text("SYSTEM LOOK (THEME)", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp))
+                        .clickable { isThemeDropdownExpanded = true }
+                        .padding(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = themes.firstOrNull { it.first == user.theme }?.second ?: "Default Blue",
+                            color = primaryColor,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Theme", tint = Color.Gray)
+                    }
+
+                    DropdownMenu(
+                        expanded = isThemeDropdownExpanded,
+                        onDismissRequest = { isThemeDropdownExpanded = false },
+                        modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).border(1.dp, Color.DarkGray)
+                    ) {
+                        themes.forEach { theme ->
+                            DropdownMenuItem(
+                                text = { Text(theme.second, color = MaterialTheme.colorScheme.onBackground) },
+                                onClick = {
+                                    onUpdateTheme(theme.first)
+                                    isThemeDropdownExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Dark Mode Toggle
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = themes.firstOrNull { it.first == user.theme }?.second ?: "Default Blue",
-                        color = primaryColor,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Theme", tint = Color.Gray)
-                }
-
-                DropdownMenu(
-                    expanded = isThemeDropdownExpanded,
-                    onDismissRequest = { isThemeDropdownExpanded = false },
-                    modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).border(1.dp, Color.DarkGray)
-                ) {
-                    themes.forEach { theme ->
-                        DropdownMenuItem(
-                            text = { Text(theme.second, color = MaterialTheme.colorScheme.onBackground) },
-                            onClick = {
-                                onUpdateTheme(theme.first)
-                                isThemeDropdownExpanded = false
-                            }
-                        )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("DARK MODE STYLE", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("Toggle between light and dark background systems", color = Color.Gray, fontSize = 11.sp)
                     }
-                }
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        item {
-            // Workout Days Goal
-            Text("TARGET WORKOUT DAYS PER WEEK", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp))
-                    .padding(12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = {
-                        if (workoutDays > 3) {
-                            workoutDays--
-                            onUpdateTargetDays(workoutDays)
-                        }
-                    },
-                    enabled = workoutDays > 3
-                ) {
-                    Text("-", color = if (workoutDays > 3) primaryColor else Color.Gray, fontSize = 24.sp)
-                }
-                Text("$workoutDays Days", color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                IconButton(
-                    onClick = {
-                        if (workoutDays < 7) {
-                            workoutDays++
-                            onUpdateTargetDays(workoutDays)
-                        }
-                    },
-                    enabled = workoutDays < 7
-                ) {
-                    Text("+", color = if (workoutDays < 7) primaryColor else Color.Gray, fontSize = 24.sp)
-                }
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        item {
-            // BP Mode Toggle
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("BP/HYPERTENSION SAFE MODE", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
-                    Text("Exclude intense isometric movements for user safety", color = Color.Gray, fontSize = 11.sp)
-                }
-                Switch(
-                    checked = user.bpModeActive,
-                    onCheckedChange = { onToggleBpMode() },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = primaryColor,
-                        checkedTrackColor = primaryColor.copy(alpha = 0.5f)
-                    )
-                )
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        item {
-            // Dark Mode Toggle
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("DARK MODE STYLE", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
-                    Text("Toggle between light and dark background systems", color = Color.Gray, fontSize = 11.sp)
-                }
-                Switch(
-                    checked = user.isDarkMode,
-                    onCheckedChange = { onToggleDarkMode() },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = primaryColor,
-                        checkedTrackColor = primaryColor.copy(alpha = 0.5f)
-                    )
-                )
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        item {
-            // Skip Intro Toggle
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("SKIP BOOT SEQUENCE INTRO", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
-                    Text("Bypass splash screen animations on app startup", color = Color.Gray, fontSize = 11.sp)
-                }
-                Switch(
-                    checked = user.skipIntro,
-                    onCheckedChange = { onToggleSkipIntro() },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = primaryColor,
-                        checkedTrackColor = primaryColor.copy(alpha = 0.5f)
-                    )
-                )
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        item {
-            Text("CHOOSE STARTING RANK", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp))
-                    .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
-                    .padding(12.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val ranks = listOf("E", "D", "C", "B", "A", "S")
-                ranks.forEach { r ->
-                    val isCurrent = user.rank.startsWith(r)
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .border(
-                                1.dp,
-                                if (isCurrent) primaryColor else Color.DarkGray,
-                                RoundedCornerShape(8.dp)
-                            )
-                            .background(
-                                if (isCurrent) primaryColor.copy(alpha = 0.2f) else Color.Transparent,
-                                RoundedCornerShape(8.dp)
-                            )
-                            .clickable {
-                                showRankDialogFor = r
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = r,
-                            color = if (isCurrent) AlertGold else Color.Gray,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
+                    Switch(
+                        checked = user.isDarkMode,
+                        onCheckedChange = { onToggleDarkMode() },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = primaryColor,
+                            checkedTrackColor = primaryColor.copy(alpha = 0.5f)
                         )
-                    }
+                    )
                 }
             }
-            Spacer(modifier = Modifier.height(24.dp))
         }
 
+        // 3. AUDIO CONFIGURATION
         item {
-            // Timers Customization
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            val audioPrefs = context.getSharedPreferences("system_fit_audio", Context.MODE_PRIVATE)
+            var audioEnabled by remember { mutableStateOf(audioPrefs.getBoolean("audio_enabled", true)) }
+            var audioVolume by remember { mutableStateOf(audioPrefs.getFloat("audio_volume", 0.5f)) }
+
+            SettingsFolder(
+                title = "AUDIO CONFIGURATION",
+                icon = Icons.Default.Info,
+                expanded = isAudioExpanded,
+                onToggle = { isAudioExpanded = !isAudioExpanded; SoundManager.playNavigation() }
             ) {
-                Text("CUSTOM WORKOUT TIMERS", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Use Stats Formula", color = Color.Gray, fontSize = 12.sp)
-                    Checkbox(
-                        checked = useFormulaTimers,
-                        onCheckedChange = { checked ->
-                            useFormulaTimers = checked
-                            if (checked) {
-                                onUpdateCustomTimers(0, 0)
+                // Audio On/Off Toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("SOUND EFFECTS", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("Enable or disable in-app game sound effects", color = Color.Gray, fontSize = 11.sp)
+                    }
+                    Switch(
+                        checked = audioEnabled,
+                        onCheckedChange = { enabled ->
+                            audioEnabled = enabled
+                            audioPrefs.edit().putBoolean("audio_enabled", enabled).apply()
+                            if (!enabled) {
+                                SoundManager.stopStartup()
                             } else {
-                                onUpdateCustomTimers(activeTimer, restTimer)
+                                SoundManager.playNavigation()
                             }
                         },
-                        colors = CheckboxDefaults.colors(
-                            checkedColor = primaryColor,
-                            uncheckedColor = Color.DarkGray
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = primaryColor,
+                            checkedTrackColor = primaryColor.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+                
+                if (audioEnabled) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    // Audio Volume Slider
+                    Text("VOLUME LEVEL: ${(audioVolume * 100).toInt()}%", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Slider(
+                        value = audioVolume,
+                        onValueChange = { volume ->
+                            audioVolume = volume
+                            audioPrefs.edit().putFloat("audio_volume", volume).apply()
+                        },
+                        onValueChangeFinished = {
+                            SoundManager.playNavigation()
+                        },
+                        valueRange = 0f..1f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = primaryColor,
+                            activeTrackColor = primaryColor,
+                            inactiveTrackColor = Color.DarkGray
                         )
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
+        }
 
-            if (!useFormulaTimers) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp))
-                        .padding(16.dp)
+        // 4. SYSTEM CONTROLS
+        item {
+            SettingsFolder(
+                title = "SYSTEM CONTROLS",
+                icon = Icons.Default.Settings,
+                expanded = isControlsExpanded,
+                onToggle = { isControlsExpanded = !isControlsExpanded; SoundManager.playNavigation() }
+            ) {
+                // BP Mode Toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Active Timer Selector
-                    Text("Active Interval: $activeTimer seconds", color = Color.Gray, fontSize = 14.sp)
-                    Slider(
-                        value = activeTimer.toFloat(),
-                        onValueChange = { activeTimer = it.toInt() },
-                        onValueChangeFinished = { onUpdateCustomTimers(activeTimer, restTimer) },
-                        valueRange = 10f..180f,
-                        colors = SliderDefaults.colors(
-                            thumbColor = primaryColor,
-                            activeTrackColor = primaryColor,
-                            inactiveTrackColor = Color.DarkGray
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Rest Timer Selector
-                    Text("Rest Interval: $restTimer seconds", color = Color.Gray, fontSize = 14.sp)
-                    Slider(
-                        value = restTimer.toFloat(),
-                        onValueChange = { restTimer = it.toInt() },
-                        onValueChangeFinished = { onUpdateCustomTimers(activeTimer, restTimer) },
-                        valueRange = 10f..180f,
-                        colors = SliderDefaults.colors(
-                            thumbColor = primaryColor,
-                            activeTrackColor = primaryColor,
-                            inactiveTrackColor = Color.DarkGray
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("BP/HYPERTENSION SAFE MODE", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("Exclude intense isometric movements for user safety", color = Color.Gray, fontSize = 11.sp)
+                    }
+                    Switch(
+                        checked = user.bpModeActive,
+                        onCheckedChange = { onToggleBpMode() },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = primaryColor,
+                            checkedTrackColor = primaryColor.copy(alpha = 0.5f)
                         )
                     )
                 }
-            } else {
-                Box(
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Skip Intro Toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("SKIP BOOT SEQUENCE INTRO", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("Bypass splash screen animations on app startup", color = Color.Gray, fontSize = 11.sp)
+                    }
+                    Switch(
+                        checked = user.skipIntro,
+                        onCheckedChange = { onToggleSkipIntro() },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = primaryColor,
+                            checkedTrackColor = primaryColor.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Choose Starting Rank Badge Row
+                Text("CHOOSE STARTING RANK", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp))
                         .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Active & Rest timers are dynamically calculated using your VIT and AGI attributes.",
-                        color = Color.Gray,
-                        textAlign = TextAlign.Center,
-                        fontSize = 13.sp
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(32.dp))
-        }
-
-        item {
-            // Backup and Restore Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Button(
-                    onClick = {
-                        onBackupProfile()
-                        Toast.makeText(context, "System Profile Backed Up Successfully!", Toast.LENGTH_SHORT).show()
-                        SoundManager.playNavigation()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.weight(1f).height(50.dp).border(1.dp, Color(0xFF00E5FF), RoundedCornerShape(8.dp))
-                ) {
-                    Text("BACKUP PROFILE", color = AbsoluteBlack, fontWeight = FontWeight.Bold)
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Button(
-                    onClick = {
-                        onRestoreProfile { success ->
-                            if (success) {
-                                Toast.makeText(context, "System Profile Restored Successfully!", Toast.LENGTH_SHORT).show()
-                            } else {
-                                Toast.makeText(context, "ERROR: No System Profile Backup Found!", Toast.LENGTH_SHORT).show()
-                            }
+                    val ranks = listOf("E", "D", "C", "B", "A", "S")
+                    ranks.forEach { r ->
+                        val isCurrent = user.rank.startsWith(r)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .border(
+                                    1.dp,
+                                    if (isCurrent) primaryColor else Color.DarkGray,
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .background(
+                                    if (isCurrent) primaryColor.copy(alpha = 0.2f) else Color.Transparent,
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .clickable {
+                                    showRankDialogFor = r
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = r,
+                                color = if (isCurrent) AlertGold else Color.Gray,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
                         }
-                        SoundManager.playNavigation()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF33FF99)),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.weight(1f).height(50.dp).border(1.dp, Color(0xFF33FF99), RoundedCornerShape(8.dp))
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Custom timers checkbox
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("RESTORE PROFILE", color = AbsoluteBlack, fontWeight = FontWeight.Bold)
+                    Text("CUSTOM WORKOUT TIMERS", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Use Stats Formula", color = Color.Gray, fontSize = 12.sp)
+                        Checkbox(
+                            checked = useFormulaTimers,
+                            onCheckedChange = { checked ->
+                                useFormulaTimers = checked
+                                if (checked) {
+                                    onUpdateCustomTimers(0, 0)
+                                } else {
+                                    onUpdateCustomTimers(activeTimer, restTimer)
+                                }
+                            },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = primaryColor,
+                                uncheckedColor = Color.DarkGray
+                            )
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (!useFormulaTimers) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp))
+                            .padding(12.dp)
+                    ) {
+                        // Active Timer Selector
+                        Text("Active Interval: $activeTimer seconds", color = Color.Gray, fontSize = 13.sp)
+                        Slider(
+                            value = activeTimer.toFloat(),
+                            onValueChange = { activeTimer = it.toInt() },
+                            onValueChangeFinished = { onUpdateCustomTimers(activeTimer, restTimer) },
+                            valueRange = 10f..180f,
+                            colors = SliderDefaults.colors(
+                                thumbColor = primaryColor,
+                                activeTrackColor = primaryColor,
+                                inactiveTrackColor = Color.DarkGray
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Rest Timer Selector
+                        Text("Rest Interval: $restTimer seconds", color = Color.Gray, fontSize = 13.sp)
+                        Slider(
+                            value = restTimer.toFloat(),
+                            onValueChange = { restTimer = it.toInt() },
+                            onValueChangeFinished = { onUpdateCustomTimers(activeTimer, restTimer) },
+                            valueRange = 10f..180f,
+                            colors = SliderDefaults.colors(
+                                thumbColor = primaryColor,
+                                activeTrackColor = primaryColor,
+                                inactiveTrackColor = Color.DarkGray
+                            )
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp))
+                            .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
+                            .padding(12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Calculated using VIT and AGI attributes.",
+                            color = Color.Gray,
+                            textAlign = TextAlign.Center,
+                            fontSize = 12.sp
+                        )
+                    }
                 }
             }
-            Spacer(modifier = Modifier.height(24.dp))
         }
 
+        // 5. DATA MANAGEMENT
         item {
-            Button(
-                onClick = onResetSystemData,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF3333)),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-                    .border(1.dp, Color.Red, RoundedCornerShape(8.dp))
+            SettingsFolder(
+                title = "DATA MANAGEMENT",
+                icon = Icons.Default.Refresh,
+                expanded = isDataExpanded,
+                onToggle = { isDataExpanded = !isDataExpanded; SoundManager.playNavigation() }
             ) {
-                Text("RESET SYSTEM DATA", color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Button(
+                        onClick = {
+                            onBackupProfile()
+                            Toast.makeText(context, "System Profile Backed Up Successfully!", Toast.LENGTH_SHORT).show()
+                            SoundManager.playNavigation()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.weight(1f).height(45.dp).border(1.dp, Color(0xFF00E5FF), RoundedCornerShape(8.dp))
+                    ) {
+                        Text("BACKUP PROFILE", color = AbsoluteBlack, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Button(
+                        onClick = {
+                            onRestoreProfile { success ->
+                                if (success) {
+                                    Toast.makeText(context, "System Profile Restored Successfully!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "ERROR: No System Profile Backup Found!", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            SoundManager.playNavigation()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF33FF99)),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.weight(1f).height(45.dp).border(1.dp, Color(0xFF33FF99), RoundedCornerShape(8.dp))
+                    ) {
+                        Text("RESTORE PROFILE", color = AbsoluteBlack, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = onResetSystemData,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF3333)),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(45.dp)
+                        .border(1.dp, Color.Red, RoundedCornerShape(8.dp))
+                ) {
+                    Text("RESET SYSTEM DATA", color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, fontSize = 12.sp)
+                }
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
@@ -1398,6 +1484,82 @@ fun InfoDialog(onDismiss: () -> Unit) {
                 ) {
                     Text("OK", color = AbsoluteBlack, fontWeight = FontWeight.Bold)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsFolder(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val cardBg = if (MaterialTheme.colorScheme.background == Color.Black) {
+        Color.Black.copy(alpha = 0.4f)
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+
+    val angle by animateFloatAsState(targetValue = if (expanded) 180f else 0f, label = "arrow_rotation")
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .border(1.dp, if (expanded) primaryColor else Color.DarkGray, RoundedCornerShape(8.dp))
+            .background(cardBg, RoundedCornerShape(8.dp))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onToggle() }
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (expanded) primaryColor else Color.Gray,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = title,
+                    color = if (expanded) primaryColor else MaterialTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    letterSpacing = 1.sp
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.ArrowDropDown,
+                contentDescription = if (expanded) "Collapse" else "Expand",
+                tint = if (expanded) primaryColor else Color.Gray,
+                modifier = Modifier.rotate(angle)
+            )
+        }
+
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+            ) {
+                HorizontalDivider(
+                    color = primaryColor.copy(alpha = 0.3f),
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                content()
             }
         }
     }

@@ -31,22 +31,13 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val user by userRepository.getUserStream("player_1").collectAsState(initial = null)
-            
-            var hasPlayedStartup by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-            androidx.compose.runtime.LaunchedEffect(user) {
-                if (user != null && !hasPlayedStartup) {
-                    hasPlayedStartup = true
-                    if (user?.skipIntro == true) {
-                        com.sololeveling.systemfit.presentation.utils.SoundManager.playStartup()
-                    }
-                }
-            }
 
             val themeName = user?.theme ?: "SOLO_BLUE"
             val isDarkMode = user?.isDarkMode ?: true
             val startDestination = if (user?.skipIntro == true) "dashboard" else "splash"
+            val rank = user?.rank ?: "E-Rank"
 
-            SystemFitTheme(themeName = themeName, isDarkMode = isDarkMode) {
+            SystemFitTheme(themeName = themeName, isDarkMode = isDarkMode, rank = rank) {
                 SystemFitNavigation(startDestination = startDestination)
             }
         }

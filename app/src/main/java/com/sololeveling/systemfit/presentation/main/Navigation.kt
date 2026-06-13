@@ -15,6 +15,7 @@ fun SystemFitNavigation(startDestination: String = "splash") {
         composable("splash") {
             SplashScreen(
                 onTimeout = {
+                    com.sololeveling.systemfit.presentation.utils.SoundManager.stopStartup()
                     navController.navigate("dashboard") {
                         popUpTo("splash") { inclusive = true }
                     }
