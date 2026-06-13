@@ -1,5 +1,6 @@
 package com.sololeveling.systemfit.presentation.dashboard
 
+import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -28,6 +29,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sololeveling.systemfit.data.local.entity.WorkoutLogEntity
 import com.sololeveling.systemfit.domain.model.User
+import com.sololeveling.systemfit.domain.usecase.GenerateDailyQuestUseCase
 import com.sololeveling.systemfit.presentation.components.neonPanel
 import com.sololeveling.systemfit.presentation.theme.AbsoluteBlack
 import com.sololeveling.systemfit.presentation.theme.AlertGold
