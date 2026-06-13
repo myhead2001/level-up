@@ -17,6 +17,7 @@ interface WorkoutContract {
             val isPaused: Boolean = false
         ) : UiState
         data class PenaltyZone(val timeLeftSeconds: Int) : UiState
+        data class ControlledRecovery(val timeLeftSeconds: Int) : UiState
         data class Victory(val xpEarned: Int, val levelUp: Boolean) : UiState
     }
 

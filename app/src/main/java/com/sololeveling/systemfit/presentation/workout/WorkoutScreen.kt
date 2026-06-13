@@ -1,6 +1,8 @@
 package com.sololeveling.systemfit.presentation.workout
 
 import android.app.Activity
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.os.Build.VERSION.SDK_INT
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
@@ -65,9 +67,9 @@ fun WorkoutScreen(
         }
     }
 
-    // Lock back button during Penalty Zone survival
+    // Lock back button during Penalty Zone survival or Controlled Recovery
     BackHandler(enabled = true) {
-        if (uiState !is WorkoutContract.UiState.PenaltyZone) {
+        if (uiState !is WorkoutContract.UiState.PenaltyZone && uiState !is WorkoutContract.UiState.ControlledRecovery) {
             viewModel.onEvent(WorkoutContract.UiEvent.ExitWorkout)
             onNavigateBack()
         }
@@ -76,8 +78,22 @@ fun WorkoutScreen(
     LaunchedEffect(viewModel.sideEffects) {
         viewModel.sideEffects.collect { effect ->
             when (effect) {
-                is WorkoutContract.SideEffect.PlaySystemChime -> { /* Haptic/sound tone */ }
-                is WorkoutContract.SideEffect.TriggerHapticAlert -> { /* Haptic tone */ }
+                is WorkoutContract.SideEffect.PlaySystemChime -> {
+                    try {
+                        val toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 85)
+                        toneGen.startTone(ToneGenerator.TONE_PROP_BEEP2, 120) // High quality chime beep
+                    } catch (t: Throwable) {
+                        t.printStackTrace()
+                    }
+                }
+                is WorkoutContract.SideEffect.TriggerHapticAlert -> {
+                    try {
+                        val toneGen = ToneGenerator(AudioManager.STREAM_ALARM, 100)
+                        toneGen.startTone(ToneGenerator.TONE_SUP_ERROR, 300) // Distinct alarm tone
+                    } catch (t: Throwable) {
+                        t.printStackTrace()
+                    }
+                }
                 is WorkoutContract.SideEffect.ShowToast -> {
                     android.widget.Toast.makeText(context, effect.message, android.widget.Toast.LENGTH_SHORT).show()
                 }
@@ -457,6 +473,118 @@ fun WorkoutScreen(
                         color = Color.DarkGray,
                         style = MaterialTheme.typography.bodySmall,
                         textAlign = TextAlign.Center
+                    )
+                }
+            }
+            is WorkoutContract.UiState.ControlledRecovery -> {
+                val infiniteTransition = rememberInfiniteTransition(label = "recovery_breathing")
+                val scale by infiniteTransition.animateFloat(
+                    initialValue = 0.8f,
+                    targetValue = 1.2f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(3500),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "breathing_scale"
+                )
+
+                val breathingText = if (scale > 1.0f) "EXHALE\n(NASAL)" else "INHALE\n(NASAL)"
+                val recoveryColor = Color(0xFF00E5FF)
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .border(2.dp, recoveryColor, RoundedCornerShape(4.dp))
+                            .padding(horizontal = 24.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = "CONTROLLED RECOVERY",
+                            color = recoveryColor,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            letterSpacing = 2.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, recoveryColor.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                            .background(Color(0xFF04161C), RoundedCornerShape(8.dp))
+                            .padding(20.dp)
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "Breathing Protocol",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "[Nasal Breathing Activated. Inhale deeply through your nose, expanding your diaphragm. Exhale slowly through your nose. Keep your posture upright.]",
+                                color = recoveryColor,
+                                textAlign = TextAlign.Center,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    Box(
+                        modifier = Modifier.size(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size((120 * scale).dp)
+                                .background(recoveryColor.copy(alpha = 0.15f), RoundedCornerShape(100.dp))
+                                .border(2.dp, recoveryColor.copy(alpha = 0.7f), RoundedCornerShape(100.dp))
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(90.dp)
+                                .background(Color.Black, RoundedCornerShape(100.dp))
+                                .border(1.dp, Color.Gray, RoundedCornerShape(100.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = breathingText,
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    val minutes = state.timeLeftSeconds / 60
+                    val seconds = state.timeLeftSeconds % 60
+                    val digitalTime = String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
+
+                    Text(
+                        text = digitalTime,
+                        color = Color.White,
+                        style = MaterialTheme.typography.displayMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "REST PROTOCOL TIMER",
+                        color = Color.Gray,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }

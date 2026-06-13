@@ -37,6 +37,15 @@ class ExerciseRepositoryImpl @Inject constructor(
         return list.map { it.toDomainModel() }
     }
 
+    override suspend fun getAllExercises(): List<Exercise> {
+        val list = exerciseDao.getAllExercises()
+        if (list.isEmpty()) {
+            getHtnSafeExercises() // Seeds database if empty
+            return exerciseDao.getAllExercises().map { it.toDomainModel() }
+        }
+        return list.map { it.toDomainModel() }
+    }
+
     private fun ExerciseEntity.toDomainModel() = Exercise(
         id = id,
         name = name,

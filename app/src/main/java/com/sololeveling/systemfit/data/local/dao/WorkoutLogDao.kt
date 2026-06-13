@@ -17,4 +17,7 @@ interface WorkoutLogDao {
 
     @Query("SELECT * FROM workout_logs WHERE userId = :userId ORDER BY timestamp DESC")
     suspend fun getLogs(userId: String): List<WorkoutLogEntity>
+
+    @Query("DELETE FROM workout_logs WHERE userId = :userId")
+    suspend fun clearLogs(userId: String)
 }

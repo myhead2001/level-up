@@ -21,7 +21,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             val user by userRepository.getUserStream("player_1").collectAsState(initial = null)
             val themeName = user?.theme ?: "SOLO_BLUE"
-            SystemFitTheme(themeName = themeName) {
+            val isDarkMode = user?.isDarkMode ?: true
+            SystemFitTheme(themeName = themeName, isDarkMode = isDarkMode) {
                 SystemFitNavigation()
             }
         }

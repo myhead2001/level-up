@@ -41,6 +41,7 @@ class WorkoutViewModel @Inject constructor(
     private var expectedEndTimeMillis = 0L
     private var timerJob: Job? = null
     private var penaltyTimerJob: Job? = null
+    private var recoveryTimerJob: Job? = null
     
     // Internal state variables for active combat
     private var dailyQuest: GenerateDailyQuestUseCase.DailyQuest? = null
@@ -138,12 +139,31 @@ class WorkoutViewModel @Inject constructor(
                 isPartialCompletion = true,
                 baseXpEarned = 100
             )
-            // Trigger penalty flag and start Penalty Zone
-            val user = userRepository.getUser("player_1")
-            if (user != null) {
-                userRepository.saveUser(user.copy(penaltyActive = true))
+            // No penalty flag is set. Start controlled recovery directly.
+            startControlledRecovery()
+        }
+    }
+
+    private fun startControlledRecovery() {
+        timerJob?.cancel()
+        _uiState.value = WorkoutContract.UiState.ControlledRecovery(180)
+        startRecoveryCountdown(180)
+    }
+
+    private fun startRecoveryCountdown(durationSeconds: Int) {
+        recoveryTimerJob?.cancel()
+        var remaining = durationSeconds
+        recoveryTimerJob = viewModelScope.launch {
+            while (remaining >= 0) {
+                _uiState.value = WorkoutContract.UiState.ControlledRecovery(remaining)
+                if (remaining > 0 && remaining % 6 == 0) {
+                    _sideEffects.send(WorkoutContract.SideEffect.PlaySystemChime)
+                }
+                delay(1000)
+                remaining--
             }
-            startPenaltyZone()
+            _sideEffects.send(WorkoutContract.SideEffect.PlaySystemChime)
+            _uiState.value = WorkoutContract.UiState.Victory(xpEarned = 0, levelUp = false)
         }
     }
 
@@ -325,5 +345,6 @@ class WorkoutViewModel @Inject constructor(
         super.onCleared()
         timerJob?.cancel()
         penaltyTimerJob?.cancel()
+        recoveryTimerJob?.cancel()
     }
 }

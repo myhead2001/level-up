@@ -43,6 +43,7 @@ fun DashboardScreen(
 ) {
     val user by viewModel.userState.collectAsState()
     val workoutLogs by viewModel.workoutLogsState.collectAsState()
+    val dailyQuest by viewModel.dailyQuestState.collectAsState()
     var selectedTab by remember { mutableStateOf(0) }
 
     var showRenameDialog by remember { mutableStateOf(false) }
@@ -130,22 +131,45 @@ fun DashboardScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                when (selectedTab) {
-                    0 -> HomeTabContent(
-                        user = activeUser,
-                        onRenameClick = { showRenameDialog = true },
-                        onInfoClick = { showInfoDialog = true },
-                        onAllocateStat = { viewModel.allocateStatPoint(it) },
-                        onNavigateToWorkout = onNavigateToWorkout
-                    )
-                    1 -> QuestsTabContent(user = activeUser, logs = workoutLogs)
-                    2 -> AnalyticsTabContent(user = activeUser, logs = workoutLogs)
-                    3 -> ProfileTabContent(
-                        user = activeUser,
-                        onUpdateTheme = { viewModel.updateTheme(it) },
-                        onUpdateTargetDays = { viewModel.updateTargetDays(it) },
-                        onUpdateCustomTimers = { act, rst -> viewModel.updateCustomTimers(act, rst) }
-                    )
+                AnimatedContent(
+                    targetState = selectedTab,
+                    transitionSpec = {
+                        if (targetState > initialState) {
+                            (slideInHorizontally { width -> width } + fadeIn()).togetherWith(
+                                slideOutHorizontally { width -> -width } + fadeOut())
+                        } else {
+                            (slideInHorizontally { width -> -width } + fadeIn()).togetherWith(
+                                slideOutHorizontally { width -> width } + fadeOut())
+                        }.using(
+                            SizeTransform(clip = false)
+                        )
+                    },
+                    label = "tab_transitions"
+                ) { targetTab ->
+                    when (targetTab) {
+                        0 -> HomeTabContent(
+                            user = activeUser,
+                            onRenameClick = { showRenameDialog = true },
+                            onInfoClick = { showInfoDialog = true },
+                            onAllocateStat = { viewModel.allocateStatPoint(it) },
+                            onNavigateToWorkout = onNavigateToWorkout
+                        )
+                        1 -> QuestsTabContent(
+                            user = activeUser,
+                            logs = workoutLogs,
+                            dailyQuest = dailyQuest
+                        )
+                        2 -> AnalyticsTabContent(user = activeUser, logs = workoutLogs)
+                        3 -> ProfileTabContent(
+                            user = activeUser,
+                            onUpdateTheme = { viewModel.updateTheme(it) },
+                            onUpdateTargetDays = { viewModel.updateTargetDays(it) },
+                            onUpdateCustomTimers = { act, rst -> viewModel.updateCustomTimers(act, rst) },
+                            onToggleBpMode = { viewModel.toggleBpMode() },
+                            onToggleDarkMode = { viewModel.toggleDarkMode() },
+                            onResetSystemData = { viewModel.resetSystemData() }
+                        )
+                    }
                 }
             }
         }
@@ -353,7 +377,11 @@ fun StatRow(
 }
 
 @Composable
-fun QuestsTabContent(user: User, logs: List<WorkoutLogEntity>) {
+fun QuestsTabContent(
+    user: User,
+    logs: List<WorkoutLogEntity>,
+    dailyQuest: GenerateDailyQuestUseCase.DailyQuest?
+) {
     val primaryColor = MaterialTheme.colorScheme.primary
 
     // Check if a workout has been successfully logged today
@@ -419,13 +447,28 @@ fun QuestsTabContent(user: User, logs: List<WorkoutLogEntity>) {
                     )
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    QuestGoalRow("Push-ups", if (isQuestCompleted) "100/100" else "0/100", isQuestCompleted)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    QuestGoalRow("Sit-ups", if (isQuestCompleted) "100/100" else "0/100", isQuestCompleted)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    QuestGoalRow("Squats", if (isQuestCompleted) "100/100" else "0/100", isQuestCompleted)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    QuestGoalRow("Running", if (isQuestCompleted) "10/10km" else "0/10km", isQuestCompleted)
+                    if (dailyQuest != null) {
+                        dailyQuest.exercises.forEachIndexed { index, exercise ->
+                            QuestGoalRow(
+                                name = exercise.name,
+                                progressText = if (isQuestCompleted) {
+                                    "${dailyQuest.totalTargetRounds}/${dailyQuest.totalTargetRounds} Sets"
+                                } else {
+                                    "0/${dailyQuest.totalTargetRounds} Sets (${dailyQuest.activeIntervalSeconds}s)"
+                                },
+                                completed = isQuestCompleted
+                            )
+                            if (index < dailyQuest.exercises.size - 1) {
+                                Spacer(modifier = Modifier.height(16.dp))
+                            }
+                        }
+                    } else {
+                        Text(
+                            "Generating daily quest...",
+                            color = Color.Gray,
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        )
+                    }
                 }
             }
         }
@@ -736,7 +779,10 @@ fun ProfileTabContent(
     user: User,
     onUpdateTheme: (String) -> Unit,
     onUpdateTargetDays: (Int) -> Unit,
-    onUpdateCustomTimers: (Int, Int) -> Unit
+    onUpdateCustomTimers: (Int, Int) -> Unit,
+    onToggleBpMode: () -> Unit,
+    onToggleDarkMode: () -> Unit,
+    onResetSystemData: () -> Unit
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     var isThemeDropdownExpanded by remember { mutableStateOf(false) }
@@ -855,6 +901,56 @@ fun ProfileTabContent(
         }
 
         item {
+            // BP Mode Toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("BP/HYPERTENSION SAFE MODE", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Exclude intense isometric movements for user safety", color = Color.Gray, fontSize = 11.sp)
+                }
+                Switch(
+                    checked = user.bpModeActive,
+                    onCheckedChange = { onToggleBpMode() },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = primaryColor,
+                        checkedTrackColor = primaryColor.copy(alpha = 0.5f)
+                    )
+                )
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        item {
+            // Dark Mode Toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("DARK MODE STYLE", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Toggle between light and dark background systems", color = Color.Gray, fontSize = 11.sp)
+                }
+                Switch(
+                    checked = user.isDarkMode,
+                    onCheckedChange = { onToggleDarkMode() },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = primaryColor,
+                        checkedTrackColor = primaryColor.copy(alpha = 0.5f)
+                    )
+                )
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        item {
             // Timers Customization
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -936,6 +1032,22 @@ fun ProfileTabContent(
                     )
                 }
             }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(32.dp))
+            Button(
+                onClick = onResetSystemData,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF3333)),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .border(1.dp, Color.Red, RoundedCornerShape(8.dp))
+            ) {
+                Text("RESET SYSTEM DATA", color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            }
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }

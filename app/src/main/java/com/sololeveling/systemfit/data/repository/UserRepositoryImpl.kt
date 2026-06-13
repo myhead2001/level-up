@@ -73,6 +73,33 @@ class UserRepositoryImpl @Inject constructor(
         workoutLogDao.insertLog(log)
     }
 
+    override suspend fun resetDatabase(userId: String) {
+        workoutLogDao.clearLogs(userId)
+        userDao.deleteUser(userId)
+        userDao.insertUser(
+            UserEntity(
+                id = userId,
+                name = "Sung Jin-Woo",
+                level = 1,
+                currentXp = 0,
+                str = 10,
+                vit = 10,
+                agi = 10,
+                availableStatPoints = 0,
+                currentStreak = 0,
+                bestStreak = 0,
+                theme = "SOLO_BLUE",
+                targetWorkoutDaysPerWeek = 5,
+                customActiveDurationSeconds = 0,
+                customRestDurationSeconds = 0,
+                lastWorkoutTimestamp = 0L,
+                penaltyActive = false,
+                bpModeActive = true,
+                isDarkMode = true
+            )
+        )
+    }
+
     private fun UserEntity.toDomainModel() = User(
         id = id,
         name = name,
@@ -89,7 +116,9 @@ class UserRepositoryImpl @Inject constructor(
         customActiveDurationSeconds = customActiveDurationSeconds,
         customRestDurationSeconds = customRestDurationSeconds,
         lastWorkoutTimestamp = lastWorkoutTimestamp,
-        penaltyActive = penaltyActive
+        penaltyActive = penaltyActive,
+        bpModeActive = bpModeActive,
+        isDarkMode = isDarkMode
     )
 
     private fun User.toEntity() = UserEntity(
@@ -108,6 +137,8 @@ class UserRepositoryImpl @Inject constructor(
         customActiveDurationSeconds = customActiveDurationSeconds,
         customRestDurationSeconds = customRestDurationSeconds,
         lastWorkoutTimestamp = lastWorkoutTimestamp,
-        penaltyActive = penaltyActive
+        penaltyActive = penaltyActive,
+        bpModeActive = bpModeActive,
+        isDarkMode = isDarkMode
     )
 }

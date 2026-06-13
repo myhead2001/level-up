@@ -5,16 +5,19 @@ import androidx.lifecycle.viewModelScope
 import com.sololeveling.systemfit.data.local.entity.WorkoutLogEntity
 import com.sololeveling.systemfit.domain.model.User
 import com.sololeveling.systemfit.domain.repository.UserRepository
+import com.sololeveling.systemfit.domain.usecase.GenerateDailyQuestUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val generateDailyQuestUseCase: GenerateDailyQuestUseCase
 ) : ViewModel() {
 
     val userState: StateFlow<User?> = userRepository.getUserStream("player_1")
@@ -30,6 +33,19 @@ class DashboardViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
+
+    private val _dailyQuestState = kotlinx.coroutines.flow.MutableStateFlow<GenerateDailyQuestUseCase.DailyQuest?>(null)
+    val dailyQuestState: StateFlow<GenerateDailyQuestUseCase.DailyQuest?> = _dailyQuestState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            userState.collect { user ->
+                if (user != null) {
+                    _dailyQuestState.value = generateDailyQuestUseCase(user)
+                }
+            }
+        }
+    }
 
     fun allocateStatPoint(stat: String) {
         viewModelScope.launch {

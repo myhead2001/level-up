@@ -35,11 +35,21 @@ class GenerateDailyQuestUseCase @Inject constructor(
         // Total Target Rounds: min(2 + floor(Level / 3), 5)
         val totalRounds = min(2 + (user.level / 3), 5)
         
-        // Ensure exercises are hypertension-safe as per requirements
-        val safeExercises = exerciseRepository.getHtnSafeExercises()
+        // Exclude intense isometric / head-below-heart positions if BP safe mode is enabled
+        val exercises = if (user.bpModeActive) {
+            exerciseRepository.getHtnSafeExercises()
+        } else {
+            exerciseRepository.getAllExercises()
+        }
         
-        // Pick a subset of exercises randomly for the quest, let's say 4 distinct exercises
-        val selectedExercises = safeExercises.shuffled().take(4)
+        // Form a day-based seed so quest generation is deterministic for any given day
+        val calendar = java.util.Calendar.getInstance()
+        val year = calendar.get(java.util.Calendar.YEAR)
+        val dayOfYear = calendar.get(java.util.Calendar.DAY_OF_YEAR)
+        val seed = (year * 366 + dayOfYear).toLong()
+        val random = java.util.Random(seed)
+        
+        val selectedExercises = exercises.shuffled(random).take(4)
 
         return DailyQuest(
             exercises = selectedExercises,

@@ -16,7 +16,9 @@ data class User(
     val customActiveDurationSeconds: Int = 0,
     val customRestDurationSeconds: Int = 0,
     val lastWorkoutTimestamp: Long = 0L,
-    val penaltyActive: Boolean = false
+    val penaltyActive: Boolean = false,
+    val bpModeActive: Boolean = true,
+    val isDarkMode: Boolean = true
 ) {
     val requiredXpForNextLevel: Int
         get() = (100 * Math.pow(level.toDouble(), 1.5)).toInt()

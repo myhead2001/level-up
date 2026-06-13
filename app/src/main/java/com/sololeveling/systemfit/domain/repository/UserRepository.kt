@@ -10,4 +10,5 @@ interface UserRepository {
     suspend fun saveUser(user: User)
     fun getWorkoutLogsStream(userId: String): Flow<List<WorkoutLogEntity>>
     suspend fun logWorkout(log: WorkoutLogEntity)
+    suspend fun resetDatabase(userId: String)
 }
