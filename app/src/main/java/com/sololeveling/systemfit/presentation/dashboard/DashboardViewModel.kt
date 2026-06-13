@@ -112,4 +112,17 @@ class DashboardViewModel @Inject constructor(
             userRepository.resetDatabase("player_1")
         }
     }
+
+    fun backupProfile() {
+        viewModelScope.launch {
+            userRepository.backupProfile("player_1")
+        }
+    }
+
+    fun restoreProfile(onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val success = userRepository.restoreProfile("player_1")
+            onResult(success)
+        }
+    }
 }

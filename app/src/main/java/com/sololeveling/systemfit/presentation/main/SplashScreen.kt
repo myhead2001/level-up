@@ -1,9 +1,12 @@
 package com.sololeveling.systemfit.presentation.main
 
 import androidx.compose.animation.core.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -118,19 +121,33 @@ fun SplashScreen(
                     .background(Color.Black.copy(alpha = 0.6f))
                     .padding(20.dp)
             ) {
-                Column(verticalArrangement = Arrangement.Top) {
-                    Text(
-                        text = "BOOT STATUS LOG",
-                        color = Color.Gray,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
+                val listState = rememberLazyListState()
+
+                LaunchedEffect(currentLineIndex, displayedText) {
+                    val totalItems = currentLineIndex + 2 // include header and active line
+                    if (totalItems > 0) {
+                        listState.animateScrollToItem(totalItems - 1)
+                    }
+                }
+
+                LazyColumn(
+                    state = listState,
+                    verticalArrangement = Arrangement.Top,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    item {
+                        Text(
+                            text = "BOOT STATUS LOG",
+                            color = Color.Gray,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
                     
-                    // Display previous boot lines in gray
-                    for (prev in 0 until currentLineIndex) {
+                    items(currentLineIndex) { prev ->
                         Text(
                             text = bootLines[prev],
                             color = if (bootLines[prev].startsWith("[WARNING")) Color(0xFFFF3333).copy(alpha = 0.6f) else Color.DarkGray,
@@ -140,14 +157,17 @@ fun SplashScreen(
                         )
                     }
 
-                    // Display active line typing out in neon color
-                    Text(
-                        text = displayedText,
-                        color = if (displayedText.startsWith("[WARNING")) Color(0xFFFF3333) else primaryColor,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
-                    )
+                    item {
+                        if (displayedText.isNotEmpty()) {
+                            Text(
+                                text = displayedText,
+                                color = if (displayedText.startsWith("[WARNING")) Color(0xFFFF3333) else primaryColor,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
                 }
             }
         }

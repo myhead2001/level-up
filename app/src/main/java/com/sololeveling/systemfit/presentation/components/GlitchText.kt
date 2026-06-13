@@ -22,17 +22,34 @@ fun GlitchText(
     var offset1 by remember { mutableStateOf(Offset.Zero) }
     var offset2 by remember { mutableStateOf(Offset.Zero) }
     var glitchActive by remember { mutableStateOf(false) }
+    var displayedText by remember(text) { mutableStateOf(text) }
 
     LaunchedEffect(text) {
         while (true) {
-            delay(Random.nextLong(2500, 6000)) // Random interval between glitches
+            val nextDelay = if (Random.nextFloat() < 0.25f) 400L else Random.nextLong(1500, 5000)
+            delay(nextDelay)
+            
             glitchActive = true
-            repeat(4) {
-                offset1 = Offset(Random.nextFloat() * 8f - 4f, Random.nextFloat() * 4f - 2f)
-                offset2 = Offset(Random.nextFloat() * 8f - 4f, Random.nextFloat() * 4f - 2f)
-                delay(60)
+            val burstCount = Random.nextInt(3, 7)
+            repeat(burstCount) {
+                offset1 = Offset(Random.nextFloat() * 12f - 6f, Random.nextFloat() * 6f - 3f)
+                offset2 = Offset(Random.nextFloat() * 12f - 6f, Random.nextFloat() * 6f - 3f)
+                
+                if (text.isNotEmpty()) {
+                    val chars = text.toCharArray()
+                    val scrambleCount = Random.nextInt(1, kotlin.math.min(4, text.length + 1))
+                    repeat(scrambleCount) {
+                        val idx = Random.nextInt(text.length)
+                        if (!chars[idx].isWhitespace()) {
+                            chars[idx] = listOf('_', '*', '?', 'X', '#', '@', '1', '0', '!').random()
+                        }
+                    }
+                    displayedText = String(chars)
+                }
+                delay(Random.nextLong(40, 80))
             }
             glitchActive = false
+            displayedText = text
             offset1 = Offset.Zero
             offset2 = Offset.Zero
         }
@@ -41,20 +58,20 @@ fun GlitchText(
     Box(modifier = modifier) {
         if (glitchActive) {
             Text(
-                text = text,
+                text = displayedText,
                 style = style,
-                color = Color(0xFF00E5FF).copy(alpha = 0.6f), // Neon cyan split shadow
+                color = Color(0xFF00E5FF).copy(alpha = 0.7f), // Neon cyan split shadow
                 modifier = Modifier.offset(offset1.x.dp, offset1.y.dp)
             )
             Text(
-                text = text,
+                text = displayedText,
                 style = style,
-                color = Color(0xFFFF3366).copy(alpha = 0.5f), // Neon magenta split shadow
+                color = Color(0xFFFF3366).copy(alpha = 0.6f), // Neon magenta split shadow
                 modifier = Modifier.offset(offset2.x.dp, offset2.y.dp)
             )
         }
         Text(
-            text = text,
+            text = displayedText,
             style = style,
             color = color
         )

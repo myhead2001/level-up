@@ -18,13 +18,14 @@ interface WorkoutContract {
         ) : UiState
         data class PenaltyZone(val timeLeftSeconds: Int) : UiState
         data class ControlledRecovery(val timeLeftSeconds: Int) : UiState
-        data class Victory(val xpEarned: Int, val levelUp: Boolean) : UiState
+        data class Victory(val xpEarned: Int, val levelUp: Boolean, val playerLevel: Int) : UiState
     }
 
     sealed interface UiEvent {
         object StartQuest : UiEvent
         object SkipRest : UiEvent
         object TriggerPanicButton : UiEvent // Immediate Emergency Halt
+        object SkipRecovery : UiEvent
         object ClaimRewards : UiEvent
         object TogglePause : UiEvent
         object NextExercise : UiEvent

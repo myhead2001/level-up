@@ -9,6 +9,8 @@ import com.sololeveling.systemfit.domain.model.User
 import com.sololeveling.systemfit.domain.repository.UserRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -17,7 +19,8 @@ import javax.inject.Singleton
 class UserRepositoryImpl @Inject constructor(
     private val userDao: UserDao,
     private val workoutLogDao: WorkoutLogDao,
-    private val remoteSyncSource: RemoteSyncSource
+    private val remoteSyncSource: RemoteSyncSource,
+    @ApplicationContext private val context: Context
 ) : UserRepository {
 
     override fun getUserStream(userId: String): Flow<User?> {
@@ -98,6 +101,58 @@ class UserRepositoryImpl @Inject constructor(
                 isDarkMode = true
             )
         )
+    }
+
+    override suspend fun backupProfile(userId: String) {
+        val user = userDao.getUser(userId) ?: return
+        val sharedPrefs = context.getSharedPreferences("system_fit_backup", Context.MODE_PRIVATE)
+        sharedPrefs.edit().apply {
+            putString("backup_name", user.name)
+            putInt("backup_level", user.level)
+            putInt("backup_currentXp", user.currentXp)
+            putInt("backup_str", user.str)
+            putInt("backup_vit", user.vit)
+            putInt("backup_agi", user.agi)
+            putInt("backup_availableStatPoints", user.availableStatPoints)
+            putInt("backup_currentStreak", user.currentStreak)
+            putInt("backup_bestStreak", user.bestStreak)
+            putString("backup_theme", user.theme)
+            putInt("backup_targetWorkoutDaysPerWeek", user.targetWorkoutDaysPerWeek)
+            putInt("backup_customActiveDurationSeconds", user.customActiveDurationSeconds)
+            putInt("backup_customRestDurationSeconds", user.customRestDurationSeconds)
+            putLong("backup_lastWorkoutTimestamp", user.lastWorkoutTimestamp)
+            putBoolean("backup_penaltyActive", user.penaltyActive)
+            putBoolean("backup_bpModeActive", user.bpModeActive)
+            putBoolean("backup_isDarkMode", user.isDarkMode)
+            apply()
+        }
+    }
+
+    override suspend fun restoreProfile(userId: String): Boolean {
+        val sharedPrefs = context.getSharedPreferences("system_fit_backup", Context.MODE_PRIVATE)
+        if (!sharedPrefs.contains("backup_name")) return false
+        val backupUser = UserEntity(
+            id = userId,
+            name = sharedPrefs.getString("backup_name", "Sung Jin-Woo") ?: "Sung Jin-Woo",
+            level = sharedPrefs.getInt("backup_level", 1),
+            currentXp = sharedPrefs.getInt("backup_currentXp", 0),
+            str = sharedPrefs.getInt("backup_str", 10),
+            vit = sharedPrefs.getInt("backup_vit", 10),
+            agi = sharedPrefs.getInt("backup_agi", 10),
+            availableStatPoints = sharedPrefs.getInt("backup_availableStatPoints", 0),
+            currentStreak = sharedPrefs.getInt("backup_currentStreak", 0),
+            bestStreak = sharedPrefs.getInt("backup_bestStreak", 0),
+            theme = sharedPrefs.getString("backup_theme", "SOLO_BLUE") ?: "SOLO_BLUE",
+            targetWorkoutDaysPerWeek = sharedPrefs.getInt("backup_targetWorkoutDaysPerWeek", 5),
+            customActiveDurationSeconds = sharedPrefs.getInt("backup_customActiveDurationSeconds", 0),
+            customRestDurationSeconds = sharedPrefs.getInt("backup_customRestDurationSeconds", 0),
+            lastWorkoutTimestamp = sharedPrefs.getLong("backup_lastWorkoutTimestamp", 0L),
+            penaltyActive = sharedPrefs.getBoolean("backup_penaltyActive", false),
+            bpModeActive = sharedPrefs.getBoolean("backup_bpModeActive", true),
+            isDarkMode = sharedPrefs.getBoolean("backup_isDarkMode", true)
+        )
+        userDao.insertUser(backupUser)
+        return true
     }
 
     private fun UserEntity.toDomainModel() = User(

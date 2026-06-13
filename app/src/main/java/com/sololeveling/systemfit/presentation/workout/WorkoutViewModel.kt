@@ -11,6 +11,7 @@ import com.sololeveling.systemfit.domain.repository.UserRepository
 import com.sololeveling.systemfit.domain.usecase.EmergencyHaltUseCase
 import com.sololeveling.systemfit.domain.usecase.GenerateDailyQuestUseCase
 import com.sololeveling.systemfit.domain.usecase.ProcessWorkoutResultUseCase
+import com.sololeveling.systemfit.presentation.utils.SoundManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -50,6 +51,7 @@ class WorkoutViewModel @Inject constructor(
     private var isResting = false
     private var totalWorkoutSeconds = 0
     private var isPaused = false
+    private var playerLevel = 1
 
     init {
         loadSetup()
@@ -58,6 +60,7 @@ class WorkoutViewModel @Inject constructor(
     private fun loadSetup() {
         viewModelScope.launch {
             val user = userRepository.getUser("player_1") ?: User(id = "player_1")
+            playerLevel = user.level
 
             // 1. Check for daily skipped workouts (if last workout was >24 hours ago, trigger penalty)
             val now = System.currentTimeMillis()
@@ -76,6 +79,7 @@ class WorkoutViewModel @Inject constructor(
             // 2. If penalty is active, redirect straight to Penalty Zone
             if (activeUser.penaltyActive) {
                 startPenaltyZone()
+                SoundManager.playPenalty()
                 return@launch
             }
 
@@ -93,12 +97,18 @@ class WorkoutViewModel @Inject constructor(
             WorkoutContract.UiEvent.StartQuest -> startQuest()
             WorkoutContract.UiEvent.SkipRest -> skipRest()
             WorkoutContract.UiEvent.TriggerPanicButton -> triggerPanic()
+            WorkoutContract.UiEvent.SkipRecovery -> skipRecovery()
             WorkoutContract.UiEvent.ClaimRewards -> claimRewards()
             WorkoutContract.UiEvent.TogglePause -> togglePause()
             WorkoutContract.UiEvent.NextExercise -> nextExercise()
             WorkoutContract.UiEvent.PrevExercise -> prevExercise()
             WorkoutContract.UiEvent.ExitWorkout -> exitWorkout()
         }
+    }
+
+    private fun skipRecovery() {
+        recoveryTimerJob?.cancel()
+        _uiState.value = WorkoutContract.UiState.Victory(xpEarned = 0, levelUp = false, playerLevel = playerLevel)
     }
 
     private fun startQuest() {
@@ -123,13 +133,8 @@ class WorkoutViewModel @Inject constructor(
     private fun triggerPanic() {
         timerJob?.cancel()
 
-        // Play system beep to confirm receipt of emergency command
-        try {
-            val toneGen = ToneGenerator(AudioManager.STREAM_ALARM, 100)
-            toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
-        } catch (t: Throwable) {
-            // Log or ignore in unit tests
-        }
+        // Play system penalty chime to confirm receipt of emergency command
+        SoundManager.playPenalty()
 
         // Save workout result as partial immediately to log partial XP
         viewModelScope.launch {
@@ -163,7 +168,7 @@ class WorkoutViewModel @Inject constructor(
                 remaining--
             }
             _sideEffects.send(WorkoutContract.SideEffect.PlaySystemChime)
-            _uiState.value = WorkoutContract.UiState.Victory(xpEarned = 0, levelUp = false)
+            _uiState.value = WorkoutContract.UiState.Victory(xpEarned = 0, levelUp = false, playerLevel = playerLevel)
         }
     }
 
@@ -198,7 +203,7 @@ class WorkoutViewModel @Inject constructor(
                     )
                 )
             }
-            _uiState.value = WorkoutContract.UiState.Victory(xpEarned = 0, levelUp = false)
+            _uiState.value = WorkoutContract.UiState.Victory(xpEarned = 0, levelUp = false, playerLevel = playerLevel)
         }
     }
 
@@ -334,9 +339,18 @@ class WorkoutViewModel @Inject constructor(
                 updatedUser.level > userBefore.level
             } else false
 
+            if (updatedUser != null) {
+                playerLevel = updatedUser.level
+            }
+
+            if (levelUp) {
+                SoundManager.playLevelUp()
+            }
+
             _uiState.value = WorkoutContract.UiState.Victory(
                 xpEarned = 200,
-                levelUp = levelUp
+                levelUp = levelUp,
+                playerLevel = playerLevel
             )
         }
     }

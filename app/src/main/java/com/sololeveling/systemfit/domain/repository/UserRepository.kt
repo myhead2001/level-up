@@ -11,4 +11,6 @@ interface UserRepository {
     fun getWorkoutLogsStream(userId: String): Flow<List<WorkoutLogEntity>>
     suspend fun logWorkout(log: WorkoutLogEntity)
     suspend fun resetDatabase(userId: String)
+    suspend fun backupProfile(userId: String)
+    suspend fun restoreProfile(userId: String): Boolean
 }

@@ -38,8 +38,11 @@ import coil.compose.AsyncImage
 import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import coil.request.ImageRequest
+import androidx.compose.ui.window.Dialog
 import com.sololeveling.systemfit.presentation.components.CountdownRing
 import com.sololeveling.systemfit.presentation.components.neonPanel
+import com.sololeveling.systemfit.presentation.components.GlitchText
+import com.sololeveling.systemfit.presentation.utils.SoundManager
 import com.sololeveling.systemfit.presentation.theme.AbsoluteBlack
 import com.sololeveling.systemfit.presentation.theme.AlertGold
 
@@ -115,7 +118,7 @@ fun WorkoutScreen(
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = AbsoluteBlack
+        color = MaterialTheme.colorScheme.background
     ) {
         when (val state = uiState) {
             is WorkoutContract.UiState.Loading -> {
@@ -132,7 +135,7 @@ fun WorkoutScreen(
                         },
                         modifier = Modifier.padding(16.dp).align(Alignment.TopStart)
                     ) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
                     }
                     Column(
                         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -165,16 +168,16 @@ fun WorkoutScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .neonPanel(color = primaryColor)
-                                .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f), RoundedCornerShape(8.dp))
                                 .border(1.dp, primaryColor.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
                                 .padding(24.dp)
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text("ESTIMATED TARGET", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text("Duration: ${state.totalDurationMinutes} minutes", color = Color.White, style = MaterialTheme.typography.titleMedium)
+                                Text("Duration: ${state.totalDurationMinutes} minutes", color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.titleMedium)
                                 Spacer(modifier = Modifier.height(4.dp))
-                                Text("Rounds: ${state.rounds} Rounds", color = Color.White, style = MaterialTheme.typography.titleMedium)
+                                Text("Rounds: ${state.rounds} Rounds", color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.titleMedium)
                             }
                         }
                         Spacer(modifier = Modifier.height(64.dp))
@@ -201,7 +204,7 @@ fun WorkoutScreen(
                         },
                         modifier = Modifier.padding(16.dp).align(Alignment.TopStart)
                     ) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Exit", tint = Color.White)
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Exit", tint = MaterialTheme.colorScheme.onBackground)
                     }
 
                     Column(
@@ -276,7 +279,7 @@ fun WorkoutScreen(
                         Text(
                             text = if (state.isRestPeriod) "RECOVERY BREAK" else state.currentExercise.name,
                             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onBackground,
                             textAlign = TextAlign.Center
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -299,7 +302,7 @@ fun WorkoutScreen(
                                 Text(
                                     text = state.timeLeftSeconds.toString(),
                                     style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = Color.White
+                                    color = MaterialTheme.colorScheme.onBackground
                                 )
                                 Text("SECONDS", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
                             }
@@ -327,16 +330,20 @@ fun WorkoutScreen(
                                 onClick = { viewModel.onEvent(WorkoutContract.UiEvent.PrevExercise) },
                                 modifier = Modifier.background(Color.DarkGray.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
                             ) {
-                                Icon(Icons.Default.ArrowBack, contentDescription = "Prev Exercise", tint = Color.White)
+                                Icon(Icons.Default.ArrowBack, contentDescription = "Prev Exercise", tint = MaterialTheme.colorScheme.onBackground)
                             }
 
+                            // Dynamic button size to fit content without line break
                             Button(
                                 onClick = { viewModel.onEvent(WorkoutContract.UiEvent.TogglePause) },
                                 colors = ButtonDefaults.buttonColors(containerColor = accentColor),
                                 shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.height(48.dp).width(120.dp)
+                                modifier = Modifier.height(48.dp)
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 8.dp)
+                                ) {
                                     if (state.isPaused) {
                                         Icon(
                                             imageVector = Icons.Default.PlayArrow,
@@ -367,7 +374,7 @@ fun WorkoutScreen(
                                     onClick = { viewModel.onEvent(WorkoutContract.UiEvent.NextExercise) },
                                     modifier = Modifier.background(Color.DarkGray.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
                                 ) {
-                                    Icon(Icons.Default.ArrowForward, contentDescription = "Next Exercise", tint = Color.White)
+                                    Icon(Icons.Default.ArrowForward, contentDescription = "Next Exercise", tint = MaterialTheme.colorScheme.onBackground)
                                 }
                             }
                         }
@@ -454,7 +461,7 @@ fun WorkoutScreen(
 
                     Text(
                         text = digitalTime,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onBackground,
                         style = MaterialTheme.typography.displayMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
@@ -573,7 +580,7 @@ fun WorkoutScreen(
 
                     Text(
                         text = digitalTime,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onBackground,
                         style = MaterialTheme.typography.displayMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
@@ -586,101 +593,197 @@ fun WorkoutScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold
                     )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Small button to force bypass controlled recovery
+                    TextButton(
+                        onClick = { viewModel.onEvent(WorkoutContract.UiEvent.SkipRecovery) }
+                    ) {
+                        Text("SKIP RECOVERY / RETURN", color = recoveryColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
                 }
             }
             is WorkoutContract.UiState.Victory -> {
-                // Determine monster defeated based on user's current level
-                // We'll approximate level check or default to Lycan
-                val activityContext = LocalContext.current as? Activity
-                val level = remember { 1 } // Default fallback level 1
-                val monster = remember(level) {
+                // Determine monster defeated and rank based on user's level
+                val monster = remember(state.playerLevel) {
+                    val lvl = state.playerLevel
+                    val eRank = listOf("Steel-Fanged Lycan", "Goblin Scout", "Swamp Spider", "Cave Dwarf")
+                    val dRank = listOf("Hell's Gate Sentinel", "Desert Centipede", "Razan's Hound", "Cave Bear")
+                    val cRank = listOf("Shadow Infantry Soldier", "Dungeon Lizardman", "Magma Slime", "Gargoyle")
+                    val bRank = listOf("High Orc Commander", "Ice Elf Warrior", "Giant Stone Golem", "Dark Wraith")
+                    val aRank = listOf("White Walker Archer", "Twin-Headed Ogre", "Kargalgan's Mage", "Blood-Red Igris")
+                    val sRank = listOf("Shadow Commander Igris", "Ant King Beru", "Kamish the Dragon", "Baran, Demon King")
+
+                    val list = when {
+                        lvl >= 50 -> sRank
+                        lvl >= 40 -> aRank
+                        lvl >= 30 -> bRank
+                        lvl >= 20 -> cRank
+                        lvl >= 10 -> dRank
+                        else -> eRank
+                    }
+                    list.random(kotlin.random.Random(state.xpEarned.toLong() + state.playerLevel))
+                }
+
+                val rankLabel = remember(state.playerLevel) {
+                    val lvl = state.playerLevel
                     when {
-                        level >= 30 -> "High Orc Commander"
-                        level >= 20 -> "Shadow Infantry Soldier"
-                        level >= 10 -> "Hell's Gate Sentinel"
-                        else -> "Steel-Fanged Lycan"
+                        lvl >= 50 -> "S-Rank"
+                        lvl >= 40 -> "A-Rank"
+                        lvl >= 30 -> "B-Rank"
+                        lvl >= 20 -> "C-Rank"
+                        lvl >= 10 -> "D-Rank"
+                        else -> "E-Rank"
                     }
                 }
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    // Screenshot 2 style Notification Box
-                    Box(
+                var showRewardsDialog by remember { mutableStateOf(false) }
+
+                LaunchedEffect(showRewardsDialog) {
+                    if (showRewardsDialog) {
+                        SoundManager.playClaimRewards()
+                    }
+                }
+
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .neonPanel(color = primaryColor)
-                            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
-                            .border(1.dp, primaryColor.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                            .padding(24.dp)
+                            .fillMaxSize()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(
-                                modifier = Modifier
-                                    .border(1.dp, primaryColor, RoundedCornerShape(4.dp))
-                                    .padding(horizontal = 24.dp, vertical = 4.dp)
-                            ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .neonPanel(color = primaryColor)
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f), RoundedCornerShape(8.dp))
+                                .border(1.dp, primaryColor.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                                .padding(24.dp)
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Box(
+                                    modifier = Modifier
+                                        .border(1.dp, primaryColor, RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 24.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = "NOTIFICATION",
+                                        color = MaterialTheme.colorScheme.onBackground,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 2.sp
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(24.dp))
                                 Text(
-                                    "NOTIFICATION",
-                                    color = Color.White,
+                                    text = "You have defeated a",
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "[$monster].",
+                                    color = primaryColor,
                                     fontWeight = FontWeight.Bold,
-                                    letterSpacing = 2.sp
+                                    style = MaterialTheme.typography.titleLarge
                                 )
                             }
-                            Spacer(modifier = Modifier.height(24.dp))
+                        }
+                        Spacer(modifier = Modifier.height(32.dp))
+
+                        GlitchText(
+                            text = "QUEST CLEARED",
+                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                            color = AlertGold
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        if (state.xpEarned > 0) {
                             Text(
-                                "You have defeated a",
-                                color = Color.White,
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                "[$monster].",
+                                text = "+${state.xpEarned} XP",
                                 color = primaryColor,
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.titleLarge
+                                style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold)
                             )
                         }
+
+                        if (state.levelUp) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "LEVEL UP!",
+                                color = AlertGold,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleLarge,
+                                letterSpacing = 2.sp
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(64.dp))
+                        Button(
+                            onClick = {
+                                showRewardsDialog = true
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth(0.8f).height(50.dp)
+                        ) {
+                            Text("CLAIM REWARDS", color = AbsoluteBlack, fontWeight = FontWeight.Bold)
+                        }
                     }
-                    Spacer(modifier = Modifier.height(32.dp))
 
-                    Text("QUEST CLEARED", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold), color = AlertGold)
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    if (state.xpEarned > 0) {
-                        Text(
-                            text = "+${state.xpEarned} XP",
-                            color = primaryColor,
-                            style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold)
-                        )
-                    }
-
-                    if (state.levelUp) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "LEVEL UP!",
-                            color = AlertGold,
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.titleLarge,
-                            letterSpacing = 2.sp
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(64.dp))
-                    Button(
-                        onClick = {
-                            viewModel.onEvent(WorkoutContract.UiEvent.ClaimRewards)
-                            onNavigateBack()
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth(0.8f).height(50.dp)
-                    ) {
-                        Text("CLAIM REWARDS", color = AbsoluteBlack, fontWeight = FontWeight.Bold)
+                    if (showRewardsDialog) {
+                        Dialog(onDismissRequest = { /* Force confirmation click */ }) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(2.dp, primaryColor, RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.background, RoundedCornerShape(8.dp))
+                                    .padding(24.dp)
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    GlitchText(
+                                        text = "REWARDS RECEIVED",
+                                        style = MaterialTheme.typography.titleLarge.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 1.sp
+                                        ),
+                                        color = AlertGold
+                                    )
+                                    Spacer(modifier = Modifier.height(20.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                                            .border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp))
+                                            .padding(16.dp)
+                                    ) {
+                                        Column {
+                                            Text("Defeated: $monster", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Text("Dungeon Rank: $rankLabel", color = primaryColor, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Text("Rewards Earned:", color = AlertGold, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                            Text(" • XP Gained: +${state.xpEarned} XP", color = MaterialTheme.colorScheme.onBackground, fontSize = 13.sp)
+                                            if (state.levelUp) {
+                                                Text(" • +5 Stat Points (Level Up Reward)", color = primaryColor, fontSize = 13.sp)
+                                                Text(" • Rank status updated", color = primaryColor, fontSize = 13.sp)
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(24.dp))
+                                    Button(
+                                        onClick = {
+                                            showRewardsDialog = false
+                                            viewModel.onEvent(WorkoutContract.UiEvent.ClaimRewards)
+                                            onNavigateBack()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                                        modifier = Modifier.fillMaxWidth().height(48.dp)
+                                    ) {
+                                        Text("CONFIRM", color = AbsoluteBlack, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

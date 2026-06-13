@@ -31,6 +31,10 @@ import com.sololeveling.systemfit.data.local.entity.WorkoutLogEntity
 import com.sololeveling.systemfit.domain.model.User
 import com.sololeveling.systemfit.domain.usecase.GenerateDailyQuestUseCase
 import com.sololeveling.systemfit.presentation.components.neonPanel
+import com.sololeveling.systemfit.presentation.components.GlitchText
+import com.sololeveling.systemfit.presentation.utils.SoundManager
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 import com.sololeveling.systemfit.presentation.theme.AbsoluteBlack
 import com.sololeveling.systemfit.presentation.theme.AlertGold
 import java.text.SimpleDateFormat
@@ -55,7 +59,7 @@ fun DashboardScreen(
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = AbsoluteBlack
+        color = MaterialTheme.colorScheme.background
     ) {
         if (user == null) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -69,12 +73,12 @@ fun DashboardScreen(
         Scaffold(
             bottomBar = {
                 NavigationBar(
-                    containerColor = AbsoluteBlack,
+                    containerColor = MaterialTheme.colorScheme.surface,
                     modifier = Modifier.border(1.dp, primaryColor.copy(alpha = 0.3f), RoundedCornerShape(16.dp, 16.dp, 0.dp, 0.dp))
                 ) {
                     NavigationBarItem(
                         selected = selectedTab == 0,
-                        onClick = { selectedTab = 0 },
+                        onClick = { selectedTab = 0; SoundManager.playNavigation() },
                         icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
                         label = { Text("Home") },
                         colors = NavigationBarItemDefaults.colors(
@@ -87,7 +91,7 @@ fun DashboardScreen(
                     )
                     NavigationBarItem(
                         selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 },
+                        onClick = { selectedTab = 1; SoundManager.playNavigation() },
                         icon = { Icon(Icons.Default.List, contentDescription = "Quests") },
                         label = { Text("Quests") },
                         colors = NavigationBarItemDefaults.colors(
@@ -100,7 +104,7 @@ fun DashboardScreen(
                     )
                     NavigationBarItem(
                         selected = selectedTab == 2,
-                        onClick = { selectedTab = 2 },
+                        onClick = { selectedTab = 2; SoundManager.playNavigation() },
                         icon = { Icon(Icons.Default.Star, contentDescription = "Analytics") },
                         label = { Text("Analytics") },
                         colors = NavigationBarItemDefaults.colors(
@@ -113,7 +117,7 @@ fun DashboardScreen(
                     )
                     NavigationBarItem(
                         selected = selectedTab == 3,
-                        onClick = { selectedTab = 3 },
+                        onClick = { selectedTab = 3; SoundManager.playNavigation() },
                         icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
                         label = { Text("Profile") },
                         colors = NavigationBarItemDefaults.colors(
@@ -126,7 +130,7 @@ fun DashboardScreen(
                     )
                 }
             },
-            containerColor = AbsoluteBlack
+            containerColor = MaterialTheme.colorScheme.background
         ) { paddingValues ->
             Box(
                 modifier = Modifier
@@ -169,7 +173,9 @@ fun DashboardScreen(
                             onUpdateCustomTimers = { act, rst -> viewModel.updateCustomTimers(act, rst) },
                             onToggleBpMode = { viewModel.toggleBpMode() },
                             onToggleDarkMode = { viewModel.toggleDarkMode() },
-                            onResetSystemData = { viewModel.resetSystemData() }
+                            onResetSystemData = { viewModel.resetSystemData() },
+                            onBackupProfile = { viewModel.backupProfile() },
+                            onRestoreProfile = { viewModel.restoreProfile(it) }
                         )
                     }
                 }
@@ -219,7 +225,7 @@ fun HomeTabContent(
                 IconButton(onClick = onInfoClick) {
                     Icon(Icons.Default.Info, contentDescription = "Info", tint = primaryColor)
                 }
-                Text(
+                GlitchText(
                     text = "STATUS",
                     style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                     color = primaryColor
@@ -237,14 +243,14 @@ fun HomeTabContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .neonPanel(color = primaryColor)
-                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                    .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.8f), RoundedCornerShape(8.dp))
                     .border(1.dp, primaryColor.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
                     .padding(16.dp)
             ) {
                 Column {
                     Text(
                         text = "PLAYER: ${user.name}",
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onBackground,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleLarge
                     )
@@ -284,7 +290,7 @@ fun HomeTabContent(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                    .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
                     .border(1.dp, Color.DarkGray.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
                     .padding(16.dp)
             ) {
@@ -303,9 +309,9 @@ fun HomeTabContent(
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     StatRow("STR", user.str, "Increases power & damage capacity", user.availableStatPoints > 0) { onAllocateStat("STR") }
-                    Divider(color = Color.DarkGray.copy(alpha = 0.3f), modifier = Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(color = Color.DarkGray.copy(alpha = 0.3f), modifier = Modifier.padding(vertical = 8.dp))
                     StatRow("VIT", user.vit, "Improves endurance & stamina recovery", user.availableStatPoints > 0) { onAllocateStat("VIT") }
-                    Divider(color = Color.DarkGray.copy(alpha = 0.3f), modifier = Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(color = Color.DarkGray.copy(alpha = 0.3f), modifier = Modifier.padding(vertical = 8.dp))
                     StatRow("AGI", user.agi, "Boosts agility & exercise speed multiplier", user.availableStatPoints > 0) { onAllocateStat("AGI") }
                 }
             }
@@ -349,7 +355,7 @@ fun StatRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(name, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            Text(name, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
             Text(description, color = Color.Gray, style = MaterialTheme.typography.bodySmall)
         }
         Row(
@@ -368,7 +374,7 @@ fun StatRow(
                 modifier = Modifier
                     .size(32.dp)
                     .background(
-                        if (canAllocate) primaryColor.copy(alpha = 0.2f) else Color.DarkGray.copy(alpha = 0.2f),
+                        if (canAllocate) primaryColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
                         RoundedCornerShape(4.dp)
                     )
             ) {
@@ -401,77 +407,133 @@ fun QuestsTabContent(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth().weight(1f),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Quest Info Header
-            Box(
-                modifier = Modifier
-                    .border(2.dp, primaryColor, RoundedCornerShape(4.dp))
-                    .padding(horizontal = 32.dp, vertical = 8.dp)
-            ) {
-                Text(
-                    "QUEST INFO",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                    letterSpacing = 2.sp
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                "[Daily Quest: Strength Training has arrived.]",
-                color = primaryColor,
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp
-            )
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Goals Card
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, Color.DarkGray.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                    .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
-                    .padding(24.dp)
-            ) {
-                Column {
-                    Text(
-                        "GOALS",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
+            item {
+                // Quest Info Header
+                Box(
+                    modifier = Modifier
+                        .border(2.dp, primaryColor, RoundedCornerShape(4.dp))
+                        .padding(horizontal = 32.dp, vertical = 8.dp)
+                ) {
+                    GlitchText(
+                        text = "QUEST INFO",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 2.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onBackground
                     )
-                    Spacer(modifier = Modifier.height(24.dp))
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "[Daily Quest: Strength Training has arrived.]",
+                    color = primaryColor,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+            }
 
-                    if (dailyQuest != null) {
-                        dailyQuest.exercises.forEachIndexed { index, exercise ->
-                            QuestGoalRow(
-                                name = exercise.name,
-                                progressText = if (isQuestCompleted) {
-                                    "${dailyQuest.totalTargetRounds}/${dailyQuest.totalTargetRounds} Sets"
-                                } else {
-                                    "0/${dailyQuest.totalTargetRounds} Sets (${dailyQuest.activeIntervalSeconds}s)"
-                                },
-                                completed = isQuestCompleted
-                            )
-                            if (index < dailyQuest.exercises.size - 1) {
-                                Spacer(modifier = Modifier.height(16.dp))
-                            }
-                        }
-                    } else {
+            item {
+                // Goals Card
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, Color.DarkGray.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                        .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                        .padding(24.dp)
+                ) {
+                    Column {
                         Text(
-                            "Generating daily quest...",
-                            color = Color.Gray,
+                            text = "GOALS",
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.align(Alignment.CenterHorizontally)
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        if (dailyQuest != null) {
+                            dailyQuest.exercises.forEachIndexed { index, exercise ->
+                                QuestGoalRow(
+                                    name = exercise.name,
+                                    progressText = if (isQuestCompleted) {
+                                        "${dailyQuest.totalTargetRounds}/${dailyQuest.totalTargetRounds} Sets"
+                                    } else {
+                                        "0/${dailyQuest.totalTargetRounds} Sets (${dailyQuest.activeIntervalSeconds}s)"
+                                    },
+                                    completed = isQuestCompleted
+                                )
+                                if (index < dailyQuest.exercises.size - 1) {
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                }
+                            }
+                        } else {
+                            Text(
+                                text = "Generating daily quest...",
+                                color = Color.Gray,
+                                modifier = Modifier.align(Alignment.CenterHorizontally)
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(20.dp))
+            }
+
+            item {
+                // Stats Influence Card
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, primaryColor.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                        .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                        .padding(20.dp)
+                ) {
+                    Column {
+                        Text(
+                            text = "SYSTEM STAT MODIFIERS",
+                            color = AlertGold,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        val activeCalc = remember(user.agi) { kotlin.math.min(20 + user.agi * 2, 60) }
+                        val restCalc = remember(user.vit) { kotlin.math.max(90 - user.vit * 3, 30) }
+                        val roundsCalc = remember(user.level) { kotlin.math.min(2 + user.level / 3, 5) }
+
+                        Text(
+                            text = "• Agility (AGI: ${user.agi}) -> Active Duration: ${activeCalc}s (Formula: 20 + AGI * 2s, Max 60s)",
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
+                        Text(
+                            text = "• Vitality (VIT: ${user.vit}) -> Recovery Rest: ${restCalc}s (Formula: 90 - VIT * 3s, Min 30s)",
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
+                        Text(
+                            text = "• Level (LVL: ${user.level}) -> Quest Round Sets: $roundsCalc rounds (Formula: 2 + LVL / 3, Max 5)",
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
+                        Text(
+                            text = "• Safety Mode: ${if (user.bpModeActive) "ACTIVE (HTN safe movements)" else "INACTIVE"}",
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontSize = 12.sp
                         )
                     }
                 }
+                Spacer(modifier = Modifier.height(20.dp))
             }
         }
 
@@ -496,10 +558,10 @@ fun QuestGoalRow(name: String, progressText: String, completed: Boolean) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(name, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+        Text(name, color = MaterialTheme.colorScheme.onBackground, fontSize = 16.sp, fontWeight = FontWeight.Medium)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "[$progressText]",
+                text = "[$progressText]",
                 color = if (completed) primaryColor else Color.Gray,
                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                 fontSize = 14.sp
@@ -570,9 +632,9 @@ fun AnalyticsTabContent(user: User, logs: List<WorkoutLogEntity>) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                AnalyticsCard(title = "LEVEL", value = user.level.toString(), modifier = Modifier.weight(1f))
+                AnalyticsCard(title = "LEVEL", value = user.level.toString(), isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
                 Spacer(modifier = Modifier.width(8.dp))
-                AnalyticsCard(title = "RANK", value = user.rank, modifier = Modifier.weight(1f))
+                AnalyticsCard(title = "RANK", value = user.rank, isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
             }
             Spacer(modifier = Modifier.height(8.dp))
             Row(
@@ -588,18 +650,18 @@ fun AnalyticsTabContent(user: User, logs: List<WorkoutLogEntity>) {
                                 logCal.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR)
                     }.sumOf { it.xpEarned }
                 }
-                AnalyticsCard(title = "TODAY XP", value = todayXp.toString(), modifier = Modifier.weight(1f))
+                AnalyticsCard(title = "TODAY XP", value = todayXp.toString(), isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
                 Spacer(modifier = Modifier.width(8.dp))
-                AnalyticsCard(title = "TOTAL XP", value = (user.level * 1000 + user.currentXp).toString(), modifier = Modifier.weight(1f))
+                AnalyticsCard(title = "TOTAL XP", value = (user.level * 1000 + user.currentXp).toString(), isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
             }
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                AnalyticsCard(title = "STREAK", value = user.currentStreak.toString(), modifier = Modifier.weight(1f))
+                AnalyticsCard(title = "STREAK", value = user.currentStreak.toString(), isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
                 Spacer(modifier = Modifier.width(8.dp))
-                AnalyticsCard(title = "BEST STREAK", value = user.bestStreak.toString(), modifier = Modifier.weight(1f))
+                AnalyticsCard(title = "BEST STREAK", value = user.bestStreak.toString(), isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
             }
             Spacer(modifier = Modifier.height(24.dp))
         }
@@ -607,8 +669,8 @@ fun AnalyticsTabContent(user: User, logs: List<WorkoutLogEntity>) {
         item {
             // Weekly Activity Header
             Text(
-                "WEEKLY ACTIVITY",
-                color = Color.White,
+                text = "WEEKLY ACTIVITY",
+                color = MaterialTheme.colorScheme.onBackground,
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.fillMaxWidth(),
@@ -622,7 +684,7 @@ fun AnalyticsTabContent(user: User, logs: List<WorkoutLogEntity>) {
                     .fillMaxWidth()
                     .height(200.dp)
                     .border(1.dp, Color.DarkGray.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                    .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                    .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
                     .padding(16.dp)
             ) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
@@ -699,8 +761,8 @@ fun AnalyticsTabContent(user: User, logs: List<WorkoutLogEntity>) {
         item {
             // Consistency Grid Header
             Text(
-                "CONSISTENCY",
-                color = Color.White,
+                text = "CONSISTENCY",
+                color = MaterialTheme.colorScheme.onBackground,
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.fillMaxWidth(),
@@ -713,7 +775,7 @@ fun AnalyticsTabContent(user: User, logs: List<WorkoutLogEntity>) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .border(1.dp, Color.DarkGray.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                    .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                    .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceAround
             ) {
@@ -759,19 +821,19 @@ fun AnalyticsTabContent(user: User, logs: List<WorkoutLogEntity>) {
 }
 
 @Composable
-fun AnalyticsCard(title: String, value: String, modifier: Modifier = Modifier) {
+fun AnalyticsCard(title: String, value: String, isDarkMode: Boolean, modifier: Modifier = Modifier) {
     val primaryColor = MaterialTheme.colorScheme.primary
 
     Box(
         modifier = modifier
             .border(1.dp, primaryColor.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
-            .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+            .background(if (isDarkMode) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
             .padding(12.dp)
     ) {
         Column {
             Text(title, color = Color.Gray, style = MaterialTheme.typography.bodySmall)
             Spacer(modifier = Modifier.height(4.dp))
-            Text(value, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
+            Text(value, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
         }
     }
 }
@@ -784,9 +846,12 @@ fun ProfileTabContent(
     onUpdateCustomTimers: (Int, Int) -> Unit,
     onToggleBpMode: () -> Unit,
     onToggleDarkMode: () -> Unit,
-    onResetSystemData: () -> Unit
+    onResetSystemData: () -> Unit,
+    onBackupProfile: () -> Unit,
+    onRestoreProfile: ((Boolean) -> Unit) -> Unit
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
+    val context = LocalContext.current
     var isThemeDropdownExpanded by remember { mutableStateOf(false) }
 
     val themes = listOf(
@@ -809,20 +874,20 @@ fun ProfileTabContent(
         horizontalAlignment = Alignment.Start
     ) {
         item {
-            Text(
-                "SYSTEM SETTINGS",
+            GlitchText(
+                text = "SYSTEM SETTINGS",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold
+                ),
                 color = primaryColor,
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
+                modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(24.dp))
         }
 
         item {
             // Theme Selector
-            Text("SYSTEM LOOK (THEME)", color = Color.White, fontWeight = FontWeight.Bold)
+            Text("SYSTEM LOOK (THEME)", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
             Box(
                 modifier = Modifier
@@ -847,11 +912,11 @@ fun ProfileTabContent(
                 DropdownMenu(
                     expanded = isThemeDropdownExpanded,
                     onDismissRequest = { isThemeDropdownExpanded = false },
-                    modifier = Modifier.fillMaxWidth().background(AbsoluteBlack).border(1.dp, Color.DarkGray)
+                    modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).border(1.dp, Color.DarkGray)
                 ) {
                     themes.forEach { theme ->
                         DropdownMenuItem(
-                            text = { Text(theme.second, color = Color.White) },
+                            text = { Text(theme.second, color = MaterialTheme.colorScheme.onBackground) },
                             onClick = {
                                 onUpdateTheme(theme.first)
                                 isThemeDropdownExpanded = false
@@ -865,7 +930,7 @@ fun ProfileTabContent(
 
         item {
             // Workout Days Goal
-            Text("TARGET WORKOUT DAYS PER WEEK", color = Color.White, fontWeight = FontWeight.Bold)
+            Text("TARGET WORKOUT DAYS PER WEEK", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier
@@ -886,7 +951,7 @@ fun ProfileTabContent(
                 ) {
                     Text("-", color = if (workoutDays > 3) primaryColor else Color.Gray, fontSize = 24.sp)
                 }
-                Text("$workoutDays Days", color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("$workoutDays Days", color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 IconButton(
                     onClick = {
                         if (workoutDays < 7) {
@@ -912,7 +977,7 @@ fun ProfileTabContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("BP/HYPERTENSION SAFE MODE", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("BP/HYPERTENSION SAFE MODE", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
                     Text("Exclude intense isometric movements for user safety", color = Color.Gray, fontSize = 11.sp)
                 }
                 Switch(
@@ -937,7 +1002,7 @@ fun ProfileTabContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("DARK MODE STYLE", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("DARK MODE STYLE", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
                     Text("Toggle between light and dark background systems", color = Color.Gray, fontSize = 11.sp)
                 }
                 Switch(
@@ -959,7 +1024,7 @@ fun ProfileTabContent(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("CUSTOM WORKOUT TIMERS", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("CUSTOM WORKOUT TIMERS", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Use Stats Formula", color = Color.Gray, fontSize = 12.sp)
                     Checkbox(
@@ -1022,22 +1087,62 @@ fun ProfileTabContent(
                     modifier = Modifier
                         .fillMaxWidth()
                         .border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp))
-                        .background(Color.Black.copy(alpha = 0.2f))
+                        .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
                         .padding(16.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        "Active & Rest timers are dynamically calculated using your VIT and AGI attributes.",
+                        text = "Active & Rest timers are dynamically calculated using your VIT and AGI attributes.",
                         color = Color.Gray,
                         textAlign = TextAlign.Center,
                         fontSize = 13.sp
                     )
                 }
             }
+            Spacer(modifier = Modifier.height(32.dp))
         }
 
         item {
-            Spacer(modifier = Modifier.height(32.dp))
+            // Backup and Restore Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Button(
+                    onClick = {
+                        onBackupProfile()
+                        Toast.makeText(context, "System Profile Backed Up Successfully!", Toast.LENGTH_SHORT).show()
+                        SoundManager.playNavigation()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.weight(1f).height(50.dp).border(1.dp, Color(0xFF00E5FF), RoundedCornerShape(8.dp))
+                ) {
+                    Text("BACKUP PROFILE", color = AbsoluteBlack, fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Button(
+                    onClick = {
+                        onRestoreProfile { success ->
+                            if (success) {
+                                Toast.makeText(context, "System Profile Restored Successfully!", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "ERROR: No System Profile Backup Found!", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        SoundManager.playNavigation()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF33FF99)),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.weight(1f).height(50.dp).border(1.dp, Color(0xFF33FF99), RoundedCornerShape(8.dp))
+                ) {
+                    Text("RESTORE PROFILE", color = AbsoluteBlack, fontWeight = FontWeight.Bold)
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        item {
             Button(
                 onClick = onResetSystemData,
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF3333)),
@@ -1068,7 +1173,7 @@ fun RenameDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .border(2.dp, primaryColor, RoundedCornerShape(8.dp))
-                .background(AbsoluteBlack, RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.background, RoundedCornerShape(8.dp))
                 .padding(24.dp)
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -1088,7 +1193,9 @@ fun RenameDialog(
                         focusedBorderColor = primaryColor,
                         unfocusedBorderColor = Color.DarkGray,
                         focusedLabelColor = primaryColor,
-                        unfocusedLabelColor = Color.Gray
+                        unfocusedLabelColor = Color.Gray,
+                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1121,7 +1228,7 @@ fun InfoDialog(onDismiss: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .border(2.dp, primaryColor, RoundedCornerShape(8.dp))
-                .background(AbsoluteBlack, RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.background, RoundedCornerShape(8.dp))
                 .padding(24.dp)
         ) {
             Column(horizontalAlignment = Alignment.Start) {
@@ -1136,8 +1243,8 @@ fun InfoDialog(onDismiss: () -> Unit) {
 
                 Text("EXP BREAKDOWN", color = AlertGold, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 Text(
-                    "You earn 200 XP upon clearing the standard Daily Quest. Engaging the Panic Button halts the workout and transfers you to the recovery zone, granting a partial 100 XP. Level up requirement formula: 100 * Level^1.5.",
-                    color = Color.White,
+                    text = "You earn 200 XP upon clearing the standard Daily Quest. Engaging the Panic Button halts the workout and transfers you to the recovery zone, granting a partial 100 XP. Level up requirement formula: 100 * Level^1.5.",
+                    color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(vertical = 4.dp)
                 )
@@ -1145,8 +1252,8 @@ fun InfoDialog(onDismiss: () -> Unit) {
 
                 Text("STATS EXPLANATION", color = AlertGold, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 Text(
-                    "• STR (Strength): Increases physical capacity.\n• VIT (Vitality): Reduces dynamic Rest cooldown duration.\n• AGI (Agility): Increases dynamic exercise Active duration.",
-                    color = Color.White,
+                    text = "• STR (Strength): Increases physical capacity.\n• VIT (Vitality): Reduces dynamic Rest cooldown duration.\n• AGI (Agility): Increases dynamic exercise Active duration.",
+                    color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(vertical = 4.dp)
                 )
@@ -1154,8 +1261,8 @@ fun InfoDialog(onDismiss: () -> Unit) {
 
                 Text("ROUTINE EXERCISES", color = AlertGold, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 Text(
-                    "The system generates a custom daily routine comprised of Isometric hold, Cardio, Flexibility and Strength movements. The exercise duration scales with level difficulty.",
-                    color = Color.White,
+                    text = "The system generates a custom daily routine comprised of Isometric hold, Cardio, Flexibility and Strength movements. The exercise duration scales with level difficulty.",
+                    color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(vertical = 4.dp)
                 )
