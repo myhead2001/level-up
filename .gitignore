@@ -1,0 +1,14 @@
+# Gradle build outputs
+/build/
+app/build/
+
+# IDE configs
+.idea/
+.gradle/
+
+# Local configs
+local.properties
+
+# OS files
+*.log
+*.tmp
