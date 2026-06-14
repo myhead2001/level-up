@@ -30,7 +30,8 @@ class MainActivity : ComponentActivity() {
         insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
 
         setContent {
-            val user by userRepository.getUserStream("player_1").collectAsState(initial = null)
+            val activeUserId = userRepository.getActiveUserId()
+            val user by userRepository.getUserStream(activeUserId).collectAsState(initial = null)
 
             val themeName = user?.theme ?: "SOLO_BLUE"
             val isDarkMode = user?.isDarkMode ?: true

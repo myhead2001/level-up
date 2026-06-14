@@ -52,6 +52,8 @@ class ExerciseRepositoryImpl @Inject constructor(
         type = type,
         description = description,
         gifUrl = gifUrl,
-        isHtnSafe = isHtnSafe
+        isHtnSafe = isHtnSafe,
+        tier = tier,
+        requiredStr = requiredStr
     )
 }

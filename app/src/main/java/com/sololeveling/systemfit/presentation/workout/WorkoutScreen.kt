@@ -290,6 +290,23 @@ fun WorkoutScreen(
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(horizontal = 16.dp)
                         )
+                        if (!state.isRestPeriod && (state.isBpModeActive || state.currentExercise.isHtnSafe)) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Box(
+                                modifier = Modifier
+                                    .border(1.dp, Color(0xFFFF3333), RoundedCornerShape(8.dp))
+                                    .background(Color(0xFFFF3333).copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "Continuous Breathing - Do Not Hold Breath",
+                                    color = Color(0xFFFF3333),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
                         Spacer(modifier = Modifier.height(24.dp))
 
                         // Timer Circle & Countdown

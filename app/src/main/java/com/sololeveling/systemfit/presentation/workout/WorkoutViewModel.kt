@@ -24,6 +24,9 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.math.max
+import java.time.Instant
+import java.time.ZoneOffset
+import java.time.LocalDate
 
 @HiltViewModel
 class WorkoutViewModel @Inject constructor(
@@ -32,6 +35,8 @@ class WorkoutViewModel @Inject constructor(
     private val processWorkoutResultUseCase: ProcessWorkoutResultUseCase,
     private val emergencyHaltUseCase: EmergencyHaltUseCase
 ) : ViewModel() {
+
+    private val activeUserId = userRepository.getActiveUserId()
 
     private val _uiState = MutableStateFlow<WorkoutContract.UiState>(WorkoutContract.UiState.Loading)
     val uiState: StateFlow<WorkoutContract.UiState> = _uiState.asStateFlow()
@@ -59,16 +64,18 @@ class WorkoutViewModel @Inject constructor(
 
     private fun loadSetup() {
         viewModelScope.launch {
-            val user = userRepository.getUser("player_1") ?: User(id = "player_1")
+            val user = userRepository.getUser(activeUserId) ?: User(id = activeUserId)
             playerLevel = user.level
 
-            // 1. Check for daily skipped workouts (if last workout was >24 hours ago, trigger penalty)
+            // 1. Check for daily skipped workouts (use UTC day calculations for timezone safety)
             val now = System.currentTimeMillis()
             val lastWorkout = user.lastWorkoutTimestamp
             var activeUser = user
 
             if (lastWorkout > 0L) {
-                val daysDiff = ((now - lastWorkout) / (1000 * 60 * 60 * 24)).toInt()
+                val lastDay = Instant.ofEpochMilli(lastWorkout).atZone(ZoneOffset.UTC).toLocalDate().toEpochDay()
+                val currentDay = Instant.ofEpochMilli(now).atZone(ZoneOffset.UTC).toLocalDate().toEpochDay()
+                val daysDiff = (currentDay - lastDay).toInt()
                 if (daysDiff >= 2) {
                     // Missed an entire calendar day!
                     activeUser = user.copy(penaltyActive = true, currentStreak = 0)
@@ -140,9 +147,8 @@ class WorkoutViewModel @Inject constructor(
         viewModelScope.launch {
             _sideEffects.send(WorkoutContract.SideEffect.TriggerHapticAlert)
             processWorkoutResultUseCase(
-                userId = "player_1",
-                isPartialCompletion = true,
-                baseXpEarned = 100
+                userId = activeUserId,
+                isPartialCompletion = true
             )
             // No penalty flag is set. Start controlled recovery directly.
             startControlledRecovery()
@@ -188,18 +194,19 @@ class WorkoutViewModel @Inject constructor(
                 remaining--
             }
             // Cleansing Completed!
-            val user = userRepository.getUser("player_1")
+            val user = userRepository.getUser(activeUserId)
             if (user != null) {
                 val updatedUser = user.copy(penaltyActive = false)
                 userRepository.saveUser(updatedUser)
                 // Log penalty survival
                 userRepository.logWorkout(
                     WorkoutLogEntity(
-                        userId = "player_1",
+                        userId = activeUserId,
                         timestamp = System.currentTimeMillis(),
                         xpEarned = 0,
                         isCompleted = true,
-                        isPenaltyZone = true
+                        isPenaltyZone = true,
+                        durationMinutes = 5
                     )
                 )
             }
@@ -274,16 +281,22 @@ class WorkoutViewModel @Inject constructor(
 
         val duration = if (isResting) quest.restIntervalSeconds else quest.activeIntervalSeconds
 
-        _uiState.value = WorkoutContract.UiState.ActiveCombat(
-            currentRound = currentRoundIndex,
-            totalRounds = quest.totalTargetRounds,
-            currentExercise = currentEx,
-            nextExerciseName = nextEx,
-            isRestPeriod = isResting,
-            timeLeftSeconds = duration,
-            totalTimeLeftSeconds = totalWorkoutSeconds,
-            isPaused = isPaused
-        )
+        viewModelScope.launch {
+            val user = userRepository.getUser(activeUserId)
+            val isBpMode = user?.bpModeActive ?: false
+
+            _uiState.value = WorkoutContract.UiState.ActiveCombat(
+                currentRound = currentRoundIndex,
+                totalRounds = quest.totalTargetRounds,
+                currentExercise = currentEx,
+                nextExerciseName = nextEx,
+                isRestPeriod = isResting,
+                timeLeftSeconds = duration,
+                totalTimeLeftSeconds = totalWorkoutSeconds,
+                isPaused = isPaused,
+                isBpModeActive = isBpMode
+            )
+        }
         
         if (!isPaused) {
             startCountdown(duration)
@@ -329,15 +342,21 @@ class WorkoutViewModel @Inject constructor(
 
     private fun finishQuest() {
         viewModelScope.launch {
-            val userBefore = userRepository.getUser("player_1")
+            val userBefore = userRepository.getUser(activeUserId)
             val updatedUser = processWorkoutResultUseCase(
-                userId = "player_1",
-                isPartialCompletion = false,
-                baseXpEarned = 200
+                userId = activeUserId,
+                isPartialCompletion = false
             )
             val levelUp = if (userBefore != null && updatedUser != null) {
                 updatedUser.level > userBefore.level
             } else false
+
+            val xpEarned = if (userBefore != null) {
+                val lvl = userBefore.level
+                (50.0 * (1.0 + (lvl.toDouble() * 0.15))).toInt()
+            } else {
+                200
+            }
 
             if (updatedUser != null) {
                 playerLevel = updatedUser.level
@@ -348,7 +367,7 @@ class WorkoutViewModel @Inject constructor(
             }
 
             _uiState.value = WorkoutContract.UiState.Victory(
-                xpEarned = 200,
+                xpEarned = xpEarned,
                 levelUp = levelUp,
                 playerLevel = playerLevel
             )

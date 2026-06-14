@@ -5,11 +5,13 @@ import com.sololeveling.systemfit.data.local.entity.WorkoutLogEntity
 import kotlinx.coroutines.flow.Flow
 
 interface UserRepository {
+    fun getActiveUserId(): String
     fun getUserStream(userId: String): Flow<User?>
     suspend fun getUser(userId: String): User?
     suspend fun saveUser(user: User)
     fun getWorkoutLogsStream(userId: String): Flow<List<WorkoutLogEntity>>
     suspend fun logWorkout(log: WorkoutLogEntity)
+    suspend fun deleteWorkoutLog(logId: Long)
     suspend fun resetDatabase(userId: String)
     suspend fun backupProfile(userId: String)
     suspend fun restoreProfile(userId: String): Boolean

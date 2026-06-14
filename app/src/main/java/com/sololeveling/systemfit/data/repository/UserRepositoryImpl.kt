@@ -23,6 +23,24 @@ class UserRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context
 ) : UserRepository {
 
+    private var activeUserIdCache: String? = null
+
+    override fun getActiveUserId(): String {
+        if (activeUserIdCache != null) return activeUserIdCache!!
+        val sharedPrefs = context.getSharedPreferences("system_fit_user_prefs", Context.MODE_PRIVATE)
+        var userId = sharedPrefs.getString("active_user_id", null)
+        if (userId == null) {
+            userId = java.util.UUID.randomUUID().toString()
+            sharedPrefs.edit().putString("active_user_id", userId).apply()
+        }
+        activeUserIdCache = userId
+        return userId
+    }
+
+    override suspend fun deleteWorkoutLog(logId: Long) {
+        workoutLogDao.deleteLog(logId)
+    }
+
     override fun getUserStream(userId: String): Flow<User?> {
         return userDao.getUserStream(userId).map { entity ->
             if (entity == null) {

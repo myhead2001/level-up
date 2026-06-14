@@ -20,14 +20,16 @@ class DashboardViewModel @Inject constructor(
     private val generateDailyQuestUseCase: GenerateDailyQuestUseCase
 ) : ViewModel() {
 
-    val userState: StateFlow<User?> = userRepository.getUserStream("player_1")
+    val activeUserId = userRepository.getActiveUserId()
+
+    val userState: StateFlow<User?> = userRepository.getUserStream(activeUserId)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = null
         )
 
-    val workoutLogsState: StateFlow<List<WorkoutLogEntity>> = userRepository.getWorkoutLogsStream("player_1")
+    val workoutLogsState: StateFlow<List<WorkoutLogEntity>> = userRepository.getWorkoutLogsStream(activeUserId)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -138,21 +140,86 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    fun deleteWorkoutLog(logId: Long) {
+        viewModelScope.launch {
+            val user = userState.value ?: return@launch
+            val logs = workoutLogsState.value
+            val targetLog = logs.find { it.logId == logId } ?: return@launch
+            
+            // Delete log
+            userRepository.deleteWorkoutLog(logId)
+            
+            // Recalculate level and XP
+            val updatedUser = recalculateXpAndLevel(user, -targetLog.xpEarned)
+            userRepository.saveUser(updatedUser)
+        }
+    }
+
+    fun addManualWorkoutLog(timestamp: Long, xpEarned: Int, isCompleted: Boolean, durationMinutes: Int) {
+        viewModelScope.launch {
+            val user = userState.value ?: return@launch
+            
+            // Log manual workout
+            userRepository.logWorkout(
+                WorkoutLogEntity(
+                    userId = activeUserId,
+                    timestamp = timestamp,
+                    xpEarned = xpEarned,
+                    isCompleted = isCompleted,
+                    durationMinutes = durationMinutes
+                )
+            )
+            
+            // Recalculate level and XP
+            val updatedUser = recalculateXpAndLevel(user, xpEarned)
+            userRepository.saveUser(updatedUser)
+        }
+    }
+
+    private fun recalculateXpAndLevel(user: User, xpDifference: Int): User {
+        var newXp = user.currentXp + xpDifference
+        var newLevel = user.level
+        var statPoints = user.availableStatPoints
+
+        if (xpDifference > 0) {
+            // Level up logic
+            var reqXp = (100 * Math.pow(newLevel.toDouble(), 1.5)).toInt()
+            while (newXp >= reqXp) {
+                newXp -= reqXp
+                newLevel++
+                statPoints += 3
+                reqXp = (100 * Math.pow(newLevel.toDouble(), 1.5)).toInt()
+            }
+        } else if (xpDifference < 0) {
+            // Level down logic
+            while (newXp < 0 && newLevel > 1) {
+                newLevel--
+                val prevReqXp = (100 * Math.pow(newLevel.toDouble(), 1.5)).toInt()
+                newXp += prevReqXp
+                statPoints = maxOf(0, statPoints - 3)
+            }
+            if (newXp < 0) {
+                newXp = 0
+            }
+        }
+        return user.copy(level = newLevel, currentXp = newXp, availableStatPoints = statPoints)
+    }
+
     fun resetSystemData() {
         viewModelScope.launch {
-            userRepository.resetDatabase("player_1")
+            userRepository.resetDatabase(activeUserId)
         }
     }
 
     fun backupProfile() {
         viewModelScope.launch {
-            userRepository.backupProfile("player_1")
+            userRepository.backupProfile(activeUserId)
         }
     }
 
     fun restoreProfile(onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
-            val success = userRepository.restoreProfile("player_1")
+            val success = userRepository.restoreProfile(activeUserId)
             onResult(success)
         }
     }

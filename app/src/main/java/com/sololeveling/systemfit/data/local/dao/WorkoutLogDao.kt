@@ -20,4 +20,7 @@ interface WorkoutLogDao {
 
     @Query("DELETE FROM workout_logs WHERE userId = :userId")
     suspend fun clearLogs(userId: String)
+
+    @Query("DELETE FROM workout_logs WHERE logId = :logId")
+    suspend fun deleteLog(logId: Long)
 }

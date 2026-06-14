@@ -14,7 +14,8 @@ interface WorkoutContract {
             val isRestPeriod: Boolean,
             val timeLeftSeconds: Int,
             val totalTimeLeftSeconds: Int,
-            val isPaused: Boolean = false
+            val isPaused: Boolean = false,
+            val isBpModeActive: Boolean = false
         ) : UiState
         data class PenaltyZone(val timeLeftSeconds: Int) : UiState
         data class ControlledRecovery(val timeLeftSeconds: Int) : UiState

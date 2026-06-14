@@ -170,6 +170,7 @@ fun DashboardScreen(
                         2 -> AnalyticsTabContent(user = activeUser, logs = workoutLogs)
                         3 -> ProfileTabContent(
                             user = activeUser,
+                            workoutLogs = workoutLogs,
                             onUpdateTheme = { viewModel.updateTheme(it) },
                             onUpdateTargetDays = { viewModel.updateTargetDays(it) },
                             onUpdateCustomTimers = { act, rst -> viewModel.updateCustomTimers(act, rst) },
@@ -179,7 +180,9 @@ fun DashboardScreen(
                             onChangeStartRank = { viewModel.changeStartRank(it) },
                             onResetSystemData = { viewModel.resetSystemData() },
                             onBackupProfile = { viewModel.backupProfile() },
-                            onRestoreProfile = { viewModel.restoreProfile(it) }
+                            onRestoreProfile = { viewModel.restoreProfile(it) },
+                            onDeleteWorkoutLog = { viewModel.deleteWorkoutLog(it) },
+                            onAddWorkoutLog = { timestamp, xp, duration -> viewModel.addManualWorkoutLog(timestamp, xp, true, duration) }
                         )
                     }
                 }
@@ -658,6 +661,27 @@ fun AnalyticsTabContent(user: User, logs: List<WorkoutLogEntity>) {
                 Spacer(modifier = Modifier.width(8.dp))
                 AnalyticsCard(title = "TOTAL XP", value = (user.level * 1000 + user.currentXp).toString(), isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
             }
+            val avgDuration = remember(logs) {
+                if (logs.isEmpty()) 15.0 else logs.map { it.durationMinutes }.average()
+            }
+            val completionRate = remember(logs) {
+                if (logs.isEmpty()) 100.0 else (logs.count { it.isCompleted }.toDouble() / logs.size.toDouble()) * 100.0
+            }
+            val totalCalories = remember(logs, user.agi) {
+                val duration = if (logs.isEmpty()) 105 else logs.sumOf { it.durationMinutes }
+                (duration * (8.0 + user.agi * 0.1)).toInt()
+            }
+            val nextRankText = remember(user.level) {
+                when {
+                    user.level < 10 -> "D-Rank (Lvl 10)"
+                    user.level < 20 -> "C-Rank (Lvl 20)"
+                    user.level < 30 -> "B-Rank (Lvl 30)"
+                    user.level < 40 -> "A-Rank (Lvl 40)"
+                    user.level < 50 -> "S-Rank (Lvl 50)"
+                    else -> "Max S-Rank"
+                }
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -666,6 +690,24 @@ fun AnalyticsTabContent(user: User, logs: List<WorkoutLogEntity>) {
                 AnalyticsCard(title = "STREAK", value = user.currentStreak.toString(), isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
                 Spacer(modifier = Modifier.width(8.dp))
                 AnalyticsCard(title = "BEST STREAK", value = user.bestStreak.toString(), isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                AnalyticsCard(title = "AVG DURATION", value = String.format(Locale.getDefault(), "%.1f m", avgDuration), isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.width(8.dp))
+                AnalyticsCard(title = "COMPLETION", value = String.format(Locale.getDefault(), "%.1f%%", completionRate), isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                AnalyticsCard(title = "CALORIES", value = "$totalCalories kcal", isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.width(8.dp))
+                AnalyticsCard(title = "NEXT RANK", value = nextRankText, isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
             }
             Spacer(modifier = Modifier.height(24.dp))
         }
@@ -845,6 +887,7 @@ fun AnalyticsCard(title: String, value: String, isDarkMode: Boolean, modifier: M
 @Composable
 fun ProfileTabContent(
     user: User,
+    workoutLogs: List<WorkoutLogEntity>,
     onUpdateTheme: (String) -> Unit,
     onUpdateTargetDays: (Int) -> Unit,
     onUpdateCustomTimers: (Int, Int) -> Unit,
@@ -854,7 +897,9 @@ fun ProfileTabContent(
     onChangeStartRank: (String) -> Unit,
     onResetSystemData: () -> Unit,
     onBackupProfile: () -> Unit,
-    onRestoreProfile: ((Boolean) -> Unit) -> Unit
+    onRestoreProfile: ((Boolean) -> Unit) -> Unit,
+    onDeleteWorkoutLog: (Long) -> Unit,
+    onAddWorkoutLog: (Long, Int, Int) -> Unit
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val context = LocalContext.current
@@ -873,11 +918,13 @@ fun ProfileTabContent(
 
     var useFormulaTimers by remember { mutableStateOf(user.customActiveDurationSeconds == 0) }
     var showRankDialogFor by remember { mutableStateOf<String?>(null) }
+    var showAddLogDialog by remember { mutableStateOf(false) }
 
     var isProfileExpanded by remember { mutableStateOf(false) }
     var isLookExpanded by remember { mutableStateOf(false) }
     var isAudioExpanded by remember { mutableStateOf(false) }
     var isControlsExpanded by remember { mutableStateOf(false) }
+    var isLogsExpanded by remember { mutableStateOf(false) }
     var isDataExpanded by remember { mutableStateOf(false) }
 
     LazyColumn(
@@ -1316,6 +1363,169 @@ fun ProfileTabContent(
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
+
+        // 6. WORKOUT LOGS
+        item {
+            SettingsFolder(
+                title = "WORKOUT LOGS",
+                icon = Icons.Default.List,
+                expanded = isLogsExpanded,
+                onToggle = { isLogsExpanded = !isLogsExpanded; SoundManager.playNavigation() }
+            ) {
+                Button(
+                    onClick = { showAddLogDialog = true; SoundManager.playNavigation() },
+                    colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth().height(45.dp).border(1.dp, primaryColor, RoundedCornerShape(8.dp))
+                ) {
+                    Text("ADD WORKOUT SESSION", color = AbsoluteBlack, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (workoutLogs.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("No workout logs recorded.", color = Color.Gray, fontSize = 13.sp)
+                    }
+                } else {
+                    workoutLogs.forEach { log ->
+                        val dateStr = remember(log.timestamp) {
+                            val date = Date(log.timestamp)
+                            val format = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
+                            format.format(date)
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp)
+                                .border(1.dp, Color.DarkGray.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                                .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.2f) else Color.White, RoundedCornerShape(8.dp))
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = if (log.isPenaltyZone) "PENALTY SURVIVAL" else if (log.isCompleted) "QUEST COMPLETED" else "EMERGENCY HALT",
+                                    color = if (log.isCompleted) primaryColor else if (log.isPenaltyZone) Color(0xFFFF5C5C) else Color.Yellow,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(dateStr, color = Color.Gray, fontSize = 11.sp)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text("Duration: ${log.durationMinutes} mins | XP: +${log.xpEarned}", color = Color.Gray, fontSize = 11.sp)
+                            }
+                            IconButton(
+                                onClick = {
+                                    onDeleteWorkoutLog(log.logId)
+                                    SoundManager.playNavigation()
+                                }
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete Log", tint = Color(0xFFFF3333))
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+
+    if (showAddLogDialog) {
+        var xpInput by remember { mutableStateOf(50) }
+        var durationInput by remember { mutableStateOf(15) }
+        var selectedTypeIndex by remember { mutableStateOf(0) }
+        val types = listOf("CARDIO", "STRENGTH", "FLEXIBILITY")
+
+        Dialog(onDismissRequest = { showAddLogDialog = false }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(2.dp, primaryColor, RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.background, RoundedCornerShape(8.dp))
+                    .padding(24.dp)
+            ) {
+                Column(horizontalAlignment = Alignment.Start) {
+                    Text(
+                        text = "ADD WORKOUT LOG",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = primaryColor,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text("WORKOUT TYPE", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        types.forEachIndexed { idx, type ->
+                            val isSelected = selectedTypeIndex == idx
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 4.dp)
+                                    .border(1.dp, if (isSelected) primaryColor else Color.DarkGray, RoundedCornerShape(8.dp))
+                                    .background(if (isSelected) primaryColor.copy(alpha = 0.2f) else Color.Transparent, RoundedCornerShape(8.dp))
+                                    .clickable { selectedTypeIndex = idx; SoundManager.playNavigation() }
+                                    .padding(8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(type, color = if (isSelected) primaryColor else Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text("XP EARNED: $xpInput XP", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Slider(
+                        value = xpInput.toFloat(),
+                        onValueChange = { xpInput = it.toInt() },
+                        valueRange = 10f..200f,
+                        colors = SliderDefaults.colors(thumbColor = primaryColor, activeTrackColor = primaryColor, inactiveTrackColor = Color.DarkGray)
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text("DURATION: $durationInput MINS", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Slider(
+                        value = durationInput.toFloat(),
+                        onValueChange = { durationInput = it.toInt() },
+                        valueRange = 5f..60f,
+                        colors = SliderDefaults.colors(thumbColor = primaryColor, activeTrackColor = primaryColor, inactiveTrackColor = Color.DarkGray)
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        TextButton(onClick = { showAddLogDialog = false; SoundManager.playNavigation() }) {
+                            Text("CANCEL", color = Color.Gray, fontWeight = FontWeight.Bold)
+                        }
+                        Button(
+                            onClick = {
+                                onAddWorkoutLog(System.currentTimeMillis(), xpInput, durationInput)
+                                showAddLogDialog = false
+                                SoundManager.playNavigation()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
+                        ) {
+                            Text("SAVE LOG", color = AbsoluteBlack, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     if (showRankDialogFor != null) {
@@ -1366,6 +1576,7 @@ fun ProfileTabContent(
             }
         }
     }
+
 }
 
 @Composable

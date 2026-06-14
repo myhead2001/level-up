@@ -20,7 +20,7 @@ fun getRankPrimaryColor(themeName: String, rank: String): Color {
             "B" -> Color(0xFFFF0055)
             "C" -> Color(0xFFE11D48)
             "D" -> Color(0xFFF43F5E)
-            else -> Color(0xFF884444)
+            else -> Color(0xFFF87171) // Vibrant Neon Coral Rose for E-Rank
         }
         "SHADOW_PURPLE" -> when (cleanRank) {
             "S" -> Color(0xFFE879F9)
@@ -28,7 +28,7 @@ fun getRankPrimaryColor(themeName: String, rank: String): Color {
             "B" -> Color(0xFF8B5CF6)
             "C" -> Color(0xFFD946EF)
             "D" -> Color(0xFFA855F7)
-            else -> Color(0xFF8F70A3)
+            else -> Color(0xFFC084FC) // Vibrant Neon Orchid Purple for E-Rank
         }
         "GATEKEEPER_GREEN" -> when (cleanRank) {
             "S" -> Color(0xFF00FF88)
@@ -36,7 +36,7 @@ fun getRankPrimaryColor(themeName: String, rank: String): Color {
             "B" -> Color(0xFF10B981)
             "C" -> Color(0xFF10B981)
             "D" -> Color(0xFF34D399)
-            else -> Color(0xFF658070)
+            else -> Color(0xFF4ADE80) // Vibrant Neon Mint Green for E-Rank
         }
         else -> when (cleanRank) { // SOLO_BLUE / Default
             "S" -> Color(0xFF00F0FF)
@@ -44,7 +44,7 @@ fun getRankPrimaryColor(themeName: String, rank: String): Color {
             "B" -> Color(0xFF0088FF)
             "C" -> Color(0xFF06B6D4)
             "D" -> Color(0xFF38BDF8)
-            else -> Color(0xFF64748B)
+            else -> Color(0xFF60A5FA) // Vibrant Neon Sky/Steel Blue for E-Rank
         }
     }
 }

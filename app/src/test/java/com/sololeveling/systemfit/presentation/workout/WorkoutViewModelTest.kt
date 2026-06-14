@@ -47,10 +47,11 @@ class WorkoutViewModelTest {
             restIntervalSeconds = 10
         )
         
+        every { userRepository.getActiveUserId() } returns "player_1"
         coEvery { userRepository.getUser(any()) } returns User(id = "player_1")
         coEvery { userRepository.saveUser(any()) } returns Unit
         coEvery { generateDailyQuestUseCase.invoke(any()) } returns dummyQuest
-        coEvery { processWorkoutResultUseCase.invoke(any(), any(), any()) } returns User(id = "player_1")
+        coEvery { processWorkoutResultUseCase.invoke(any(), any(), any(), any()) } returns User(id = "player_1")
         mockkStatic(SystemClock::class)
         every { SystemClock.elapsedRealtime() } answers { mainDispatcherRule.testDispatcher.scheduler.currentTime }
         every { emergencyHaltUseCase.invokeHalt() } returns mockk { 

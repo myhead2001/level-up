@@ -11,5 +11,6 @@ data class WorkoutLogEntity(
     val timestamp: Long,
     val xpEarned: Int,
     val isCompleted: Boolean,
-    val isPenaltyZone: Boolean = false
+    val isPenaltyZone: Boolean = false,
+    val durationMinutes: Int = 15
 )

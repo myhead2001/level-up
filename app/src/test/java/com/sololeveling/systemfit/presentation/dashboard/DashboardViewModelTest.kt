@@ -29,8 +29,9 @@ class DashboardViewModelTest {
     @Before
     fun setUp() {
         val user = User("player_1", level = 5, str = 10, vit = 10, agi = 10, availableStatPoints = 3)
+        io.mockk.every { userRepository.getActiveUserId() } returns "player_1"
         coEvery { userRepository.getUserStream("player_1") } returns flowOf(user)
-        coEvery { generateDailyQuestUseCase(any()) } returns mockk()
+        coEvery { generateDailyQuestUseCase.invoke(any()) } returns mockk()
         viewModel = DashboardViewModel(userRepository, generateDailyQuestUseCase)
     }
 
