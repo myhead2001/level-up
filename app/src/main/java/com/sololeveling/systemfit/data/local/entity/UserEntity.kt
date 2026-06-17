@@ -7,11 +7,23 @@ import androidx.room.PrimaryKey
 data class UserEntity(
     @PrimaryKey
     val id: String,
+    val name: String,
     val level: Int,
     val currentXp: Int,
     val str: Int,
     val vit: Int,
     val agi: Int,
     val availableStatPoints: Int,
-    val currentStreak: Int
+    val currentStreak: Int,
+    val bestStreak: Int,
+    val theme: String,
+    val targetWorkoutDaysPerWeek: Int,
+    val workoutDaysOfWeek: String = "2,3,4,5,6",
+    val customActiveDurationSeconds: Int,
+    val customRestDurationSeconds: Int,
+    val lastWorkoutTimestamp: Long,
+    val penaltyActive: Boolean,
+    val bpModeActive: Boolean = true,
+    val isDarkMode: Boolean = true,
+    val skipIntro: Boolean = false
 )

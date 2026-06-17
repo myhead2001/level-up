@@ -4,6 +4,8 @@ import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import com.sololeveling.systemfit.domain.model.Exercise
 import com.sololeveling.systemfit.domain.model.ExerciseType
+import com.sololeveling.systemfit.domain.model.User
+import com.sololeveling.systemfit.domain.repository.UserRepository
 import com.sololeveling.systemfit.domain.usecase.EmergencyHaltUseCase
 import com.sololeveling.systemfit.domain.usecase.GenerateDailyQuestUseCase
 import com.sololeveling.systemfit.domain.usecase.GenerateDailyQuestUseCase.DailyQuest
@@ -28,6 +30,7 @@ class WorkoutViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private lateinit var viewModel: WorkoutViewModel
+    private val userRepository: UserRepository = mockk()
     private val generateDailyQuestUseCase: GenerateDailyQuestUseCase = mockk()
     private val processWorkoutResultUseCase: ProcessWorkoutResultUseCase = mockk()
     private val emergencyHaltUseCase: EmergencyHaltUseCase = mockk()
@@ -44,8 +47,11 @@ class WorkoutViewModelTest {
             restIntervalSeconds = 10
         )
         
+        every { userRepository.getActiveUserId() } returns "player_1"
+        coEvery { userRepository.getUser(any()) } returns User(id = "player_1")
+        coEvery { userRepository.saveUser(any()) } returns Unit
         coEvery { generateDailyQuestUseCase.invoke(any()) } returns dummyQuest
-        coEvery { processWorkoutResultUseCase.invoke(any(), any(), any()) } returns mockk()
+        coEvery { processWorkoutResultUseCase.invoke(any(), any(), any(), any()) } returns User(id = "player_1")
         mockkStatic(SystemClock::class)
         every { SystemClock.elapsedRealtime() } answers { mainDispatcherRule.testDispatcher.scheduler.currentTime }
         every { emergencyHaltUseCase.invokeHalt() } returns mockk { 
@@ -53,6 +59,7 @@ class WorkoutViewModelTest {
         }
 
         viewModel = WorkoutViewModel(
+            userRepository,
             generateDailyQuestUseCase,
             processWorkoutResultUseCase,
             emergencyHaltUseCase
@@ -75,8 +82,21 @@ class WorkoutViewModelTest {
     }
 
     @Test
-    fun `start quest transitions to ActiveCombat`() = runTest {
+    fun `start quest transitions to Warmup`() = runTest {
         viewModel.onEvent(WorkoutContract.UiEvent.StartQuest)
+
+        viewModel.uiState.test {
+            val state = expectMostRecentItem()
+            assertThat(state).isInstanceOf(WorkoutContract.UiState.Warmup::class.java)
+            val warmupState = state as WorkoutContract.UiState.Warmup
+            assertThat(warmupState.timeLeftSeconds).isEqualTo(60)
+        }
+    }
+
+    @Test
+    fun `skipping warmup transitions to ActiveCombat`() = runTest {
+        viewModel.onEvent(WorkoutContract.UiEvent.StartQuest)
+        viewModel.onEvent(WorkoutContract.UiEvent.NextExercise) // skips warmup
 
         viewModel.uiState.test {
             val state = expectMostRecentItem()

@@ -1,21 +1,50 @@
 package com.sololeveling.systemfit.presentation.dashboard
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.sololeveling.systemfit.data.local.entity.WorkoutLogEntity
+import com.sololeveling.systemfit.domain.model.User
+import com.sololeveling.systemfit.domain.usecase.GenerateDailyQuestUseCase
 import com.sololeveling.systemfit.presentation.components.neonPanel
+import com.sololeveling.systemfit.presentation.components.GlitchText
+import com.sololeveling.systemfit.presentation.utils.SoundManager
+import android.content.Context
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.draw.rotate
 import com.sololeveling.systemfit.presentation.theme.AbsoluteBlack
 import com.sololeveling.systemfit.presentation.theme.AlertGold
-import com.sololeveling.systemfit.presentation.theme.SystemBlue
-import com.sololeveling.systemfit.domain.model.User
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 
 @Composable
 fun DashboardScreen(
@@ -23,97 +52,1945 @@ fun DashboardScreen(
     onNavigateToWorkout: () -> Unit
 ) {
     val user by viewModel.userState.collectAsState()
+    val workoutLogs by viewModel.workoutLogsState.collectAsState()
+    val dailyQuest by viewModel.dailyQuestState.collectAsState()
+    var selectedTab by remember { mutableStateOf(0) }
 
-    DashboardContent(
-        user = user,
-        onNavigateToWorkout = onNavigateToWorkout,
-        onAllocateStat = { viewModel.allocateStatPoint(it) }
-    )
-}
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var showInfoDialog by remember { mutableStateOf(false) }
 
-@Composable
-fun DashboardContent(
-    user: User?,
-    onNavigateToWorkout: () -> Unit,
-    onAllocateStat: (String) -> Unit
-) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = AbsoluteBlack
+        color = MaterialTheme.colorScheme.background
     ) {
         if (user == null) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = SystemBlue)
+                CircularProgressIndicator(color = primaryColor)
             }
             return@Surface
         }
 
-        Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "STATUS",
-                style = MaterialTheme.typography.headlineMedium,
-                color = SystemBlue
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            Box(modifier = Modifier.fillMaxWidth().neonPanel().padding(16.dp)) {
-                Column {
-                    Text("PLAYER: ${user.id}", color = Color.White, fontWeight = FontWeight.Bold)
-                    Text("LEVEL: ${user.level}", color = AlertGold, style = MaterialTheme.typography.titleLarge)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    LinearProgressIndicator(
-                        progress = { user.currentXp.toFloat().div(user.requiredXpForNextLevel.toFloat()) },
-                        color = SystemBlue,
-                        trackColor = Color.DarkGray,
-                        modifier = Modifier.fillMaxWidth().height(8.dp)
+        val activeUser = user!!
+
+        Scaffold(
+            bottomBar = {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier.border(1.dp, primaryColor.copy(alpha = 0.3f), RoundedCornerShape(16.dp, 16.dp, 0.dp, 0.dp))
+                ) {
+                    NavigationBarItem(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0; SoundManager.playNavigation() },
+                        icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
+                        label = { Text("Home") },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = primaryColor,
+                            selectedTextColor = primaryColor,
+                            unselectedIconColor = Color.Gray,
+                            unselectedTextColor = Color.Gray,
+                            indicatorColor = primaryColor.copy(alpha = 0.15f)
+                        )
                     )
-                    Text("${user.currentXp} / ${user.requiredXpForNextLevel} XP", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+                    NavigationBarItem(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1; SoundManager.playNavigation() },
+                        icon = { Icon(Icons.Default.List, contentDescription = "Quests") },
+                        label = { Text("Quests") },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = primaryColor,
+                            selectedTextColor = primaryColor,
+                            unselectedIconColor = Color.Gray,
+                            unselectedTextColor = Color.Gray,
+                            indicatorColor = primaryColor.copy(alpha = 0.15f)
+                        )
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2; SoundManager.playNavigation() },
+                        icon = { Icon(Icons.Default.Star, contentDescription = "Analytics") },
+                        label = { Text("Analytics") },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = primaryColor,
+                            selectedTextColor = primaryColor,
+                            unselectedIconColor = Color.Gray,
+                            unselectedTextColor = Color.Gray,
+                            indicatorColor = primaryColor.copy(alpha = 0.15f)
+                        )
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 3,
+                        onClick = { selectedTab = 3; SoundManager.playNavigation() },
+                        icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
+                        label = { Text("Profile") },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = primaryColor,
+                            selectedTextColor = primaryColor,
+                            unselectedIconColor = Color.Gray,
+                            unselectedTextColor = Color.Gray,
+                            indicatorColor = primaryColor.copy(alpha = 0.15f)
+                        )
+                    )
                 }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Stats Allocation
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color.DarkGray.copy(alpha = 0.5f)),
-                modifier = Modifier.fillMaxWidth()
+            },
+            containerColor = MaterialTheme.colorScheme.background
+        ) { paddingValues ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("AVAILABLE POINTS: ${user.availableStatPoints}", color = AlertGold)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    StatRow("STR", user.str) { onAllocateStat("STR") }
-                    StatRow("VIT", user.vit) { onAllocateStat("VIT") }
-                    StatRow("AGI", user.agi) { onAllocateStat("AGI") }
+                AnimatedContent(
+                    targetState = selectedTab,
+                    transitionSpec = {
+                        if (targetState > initialState) {
+                            (slideInHorizontally { width -> width } + fadeIn()).togetherWith(
+                                slideOutHorizontally { width -> -width } + fadeOut())
+                        } else {
+                            (slideInHorizontally { width -> -width } + fadeIn()).togetherWith(
+                                slideOutHorizontally { width -> width } + fadeOut())
+                        }.using(
+                            SizeTransform(clip = false)
+                        )
+                    },
+                    label = "tab_transitions"
+                ) { targetTab ->
+                    when (targetTab) {
+                        0 -> HomeTabContent(
+                            user = activeUser,
+                            onRenameClick = { showRenameDialog = true },
+                            onInfoClick = { showInfoDialog = true },
+                            onAllocateStat = { viewModel.allocateStatPoint(it) },
+                            onNavigateToWorkout = onNavigateToWorkout
+                        )
+                        1 -> QuestsTabContent(
+                            user = activeUser,
+                            logs = workoutLogs,
+                            dailyQuest = dailyQuest
+                        )
+                        2 -> AnalyticsTabContent(user = activeUser, logs = workoutLogs)
+                        3 -> ProfileTabContent(
+                            user = activeUser,
+                            workoutLogs = workoutLogs,
+                            onUpdateTheme = { viewModel.updateTheme(it) },
+                            onUpdateWorkoutDays = { days, count -> viewModel.updateWorkoutDaysOfWeek(days, count) },
+                            onUpdateCustomTimers = { act, rst -> viewModel.updateCustomTimers(act, rst) },
+                            onToggleBpMode = { viewModel.toggleBpMode() },
+                            onToggleDarkMode = { viewModel.toggleDarkMode() },
+                            onToggleSkipIntro = { viewModel.toggleSkipIntro() },
+                            onChangeStartRank = { viewModel.changeStartRank(it) },
+                            onResetSystemData = { viewModel.resetSystemData() },
+                            onBackupProfile = { viewModel.backupProfile() },
+                            onRestoreProfile = { viewModel.restoreProfile(it) },
+                            onDeleteWorkoutLog = { viewModel.deleteWorkoutLog(it) },
+                            onAddWorkoutLog = { timestamp, xp, duration -> viewModel.addManualWorkoutLog(timestamp, xp, true, duration) },
+                            onForceTriggerPenalty = { viewModel.forceTriggerPenalty() }
+                        )
+                    }
                 }
             }
+        }
 
-            Spacer(modifier = Modifier.weight(1f))
+        if (showRenameDialog) {
+            RenameDialog(
+                currentName = activeUser.name,
+                onDismiss = { showRenameDialog = false },
+                onConfirm = { newName ->
+                    viewModel.renamePlayer(newName)
+                    showRenameDialog = false
+                }
+            )
+        }
 
+        if (showInfoDialog) {
+            InfoDialog(onDismiss = { showInfoDialog = false })
+        }
+    }
+}
+
+@Composable
+fun HomeTabContent(
+    user: User,
+    onRenameClick: () -> Unit,
+    onInfoClick: () -> Unit,
+    onAllocateStat: (String) -> Unit,
+    onNavigateToWorkout: () -> Unit
+) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        item {
+            // Header Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onInfoClick) {
+                    Icon(Icons.Default.Info, contentDescription = "Info", tint = primaryColor)
+                }
+                GlitchText(
+                    text = "STATUS",
+                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                    color = primaryColor
+                )
+                IconButton(onClick = onRenameClick) {
+                    Icon(Icons.Default.Edit, contentDescription = "Rename", tint = primaryColor)
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        item {
+            // Player Card
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .neonPanel(color = primaryColor)
+                    .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.8f), RoundedCornerShape(8.dp))
+                    .border(1.dp, primaryColor.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                    .padding(16.dp)
+            ) {
+                Column {
+                    Text(
+                        text = "PLAYER: ${user.name}",
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("LEVEL: ${user.level}", color = AlertGold, style = MaterialTheme.typography.titleMedium)
+                        Text("RANK: ${user.rank}", color = primaryColor, style = MaterialTheme.typography.titleMedium)
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    val progress = if (user.requiredXpForNextLevel > 0) {
+                        user.currentXp.toFloat() / user.requiredXpForNextLevel
+                    } else 0f
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        color = primaryColor,
+                        trackColor = Color.DarkGray,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "${user.currentXp} / ${user.requiredXpForNextLevel} XP",
+                        color = Color.Gray,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        item {
+            // Stats Panel
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+                    .border(1.dp, Color.DarkGray.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                    .padding(16.dp)
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("AVAILABLE STAT POINTS", color = AlertGold, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "${user.availableStatPoints}",
+                            color = AlertGold,
+                            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    StatRow("STR", user.str, "Increases power & damage capacity", user.availableStatPoints > 0) { onAllocateStat("STR") }
+                    HorizontalDivider(color = Color.DarkGray.copy(alpha = 0.3f), modifier = Modifier.padding(vertical = 8.dp))
+                    StatRow("VIT", user.vit, "Improves endurance & stamina recovery", user.availableStatPoints > 0) { onAllocateStat("VIT") }
+                    HorizontalDivider(color = Color.DarkGray.copy(alpha = 0.3f), modifier = Modifier.padding(vertical = 8.dp))
+                    StatRow("AGI", user.agi, "Boosts agility & exercise speed multiplier", user.availableStatPoints > 0) { onAllocateStat("AGI") }
+                }
+            }
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+
+        item {
+            // Action Button
             Button(
                 onClick = onNavigateToWorkout,
-                colors = ButtonDefaults.buttonColors(containerColor = SystemBlue),
-                modifier = Modifier.fillMaxWidth().height(60.dp)
+                colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(55.dp)
             ) {
-                Text("ENTER DUNGEON (DAILY QUEST)", color = AbsoluteBlack, fontWeight = FontWeight.Bold)
+                Text(
+                    text = "ENTER DUNGEON (ACCEPT DAILY QUEST)",
+                    color = AbsoluteBlack,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
             }
         }
     }
 }
 
 @Composable
-fun StatRow(name: String, value: Int, onAdd: () -> Unit) {
+fun StatRow(
+    name: String,
+    value: Int,
+    description: String,
+    canAllocate: Boolean,
+    onAdd: () -> Unit
+) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(name, color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.width(40.dp))
-        Text(value.toString(), color = SystemBlue, modifier = Modifier.width(40.dp))
-        IconButton(onClick = onAdd) {
-            Text("+", color = AlertGold, fontWeight = FontWeight.Bold)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(name, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            Text(description, color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.End
+        ) {
+            Text(
+                value.toString(),
+                color = primaryColor,
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            IconButton(
+                onClick = onAdd,
+                enabled = canAllocate,
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(
+                        if (canAllocate) primaryColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+                        RoundedCornerShape(4.dp)
+                    )
+            ) {
+                Text("+", color = if (canAllocate) AlertGold else Color.Gray, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            }
+        }
+    }
+}
+
+@Composable
+fun QuestsTabContent(
+    user: User,
+    logs: List<WorkoutLogEntity>,
+    dailyQuest: GenerateDailyQuestUseCase.DailyQuest?
+) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+
+    // Check if a workout has been successfully logged today
+    val isQuestCompleted = remember(logs) {
+        val today = Calendar.getInstance()
+        logs.any { log ->
+            val logCal = Calendar.getInstance().apply { timeInMillis = log.timestamp }
+            log.isCompleted &&
+                    logCal.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
+                    logCal.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR)
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            item {
+                // Quest Info Header
+                Box(
+                    modifier = Modifier
+                        .border(2.dp, primaryColor, RoundedCornerShape(4.dp))
+                        .padding(horizontal = 32.dp, vertical = 8.dp)
+                ) {
+                    GlitchText(
+                        text = "QUEST INFO",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 2.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "[Daily Quest: Strength Training has arrived.]",
+                    color = primaryColor,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            item {
+                // Goals Card
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, Color.DarkGray.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                        .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                        .padding(24.dp)
+                ) {
+                    Column {
+                        Text(
+                            text = "GOALS",
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        if (dailyQuest != null) {
+                            dailyQuest.exercises.forEachIndexed { index, exercise ->
+                                QuestGoalRow(
+                                    name = exercise.name,
+                                    progressText = if (isQuestCompleted) {
+                                        "${dailyQuest.totalTargetRounds}/${dailyQuest.totalTargetRounds} Sets"
+                                    } else {
+                                        "0/${dailyQuest.totalTargetRounds} Sets (${dailyQuest.activeIntervalSeconds}s)"
+                                    },
+                                    completed = isQuestCompleted
+                                )
+                                if (index < dailyQuest.exercises.size - 1) {
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                }
+                            }
+                        } else {
+                            Text(
+                                text = "Generating daily quest...",
+                                color = Color.Gray,
+                                modifier = Modifier.align(Alignment.CenterHorizontally)
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(20.dp))
+            }
+
+            item {
+                // Stats Influence Card
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, primaryColor.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                        .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                        .padding(20.dp)
+                ) {
+                    Column {
+                        Text(
+                            text = "SYSTEM STAT MODIFIERS",
+                            color = AlertGold,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        val activeCalc = remember(user.agi) { kotlin.math.min(20 + user.agi * 2, 60) }
+                        val restCalc = remember(user.vit) { kotlin.math.max(90 - user.vit * 3, 30) }
+                        val roundsCalc = remember(user.level) { kotlin.math.min(2 + user.level / 3, 5) }
+
+                        Text(
+                            text = "• AGILITY (AGI: ${user.agi}) -> Active Workout: ${activeCalc} seconds\nYour agility directly increases the duration of active exercise intervals (max 60 seconds). Higher AGI means longer training time per set.",
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Text(
+                            text = "• VITALITY (VIT: ${user.vit}) -> Recovery Rest: ${restCalc} seconds\nYour vitality accelerates your physical recovery, shortening the required rest intervals between sets (min 30 seconds). Higher VIT lets you get back into action faster.",
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Text(
+                            text = "• LEVEL (LVL: ${user.level}) -> Set Difficulty: $roundsCalc rounds\nYour current level scales the overall volume of the quest. Higher levels increase the number of workout rounds to challenge your endurance (max 5 rounds).",
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Text(
+                            text = "• SAFETY PROTOCOL -> ${if (user.bpModeActive) "ACTIVE (Hypertension Safe)" else "INACTIVE"}\nWhen active, the system filters out strenuous isometric holds (like planks and wall sits) to protect your cardiovascular system and keep blood pressure within safe limits.",
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(20.dp))
+            }
+        }
+
+        // Warning Footer
+        Text(
+            text = "WARNING: Failure to complete the daily quest will result in an appropriate penalty.",
+            color = Color.Red.copy(alpha = 0.8f),
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 13.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(16.dp)
+        )
+    }
+}
+
+@Composable
+fun QuestGoalRow(name: String, progressText: String, completed: Boolean) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(name, color = MaterialTheme.colorScheme.onBackground, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "[$progressText]",
+                color = if (completed) primaryColor else Color.Gray,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                fontSize = 14.sp
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            if (completed) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = "Completed",
+                    tint = primaryColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(18.dp)
+                        .border(1.dp, Color.Gray, RoundedCornerShape(4.dp))
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun AnalyticsTabContent(user: User, logs: List<WorkoutLogEntity>) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val context = LocalContext.current
+    var activityFilter by remember { mutableStateOf("WEEK") } // "WEEK", "MONTH", "YEAR"
+    var weekOffset by remember { mutableStateOf(0) }
+
+    // Group logs by day/month based on selected filter
+    val activityData = remember(logs, activityFilter) {
+        if (logs.isEmpty()) {
+            return@remember when (activityFilter) {
+                "WEEK" -> FloatArray(7) { 0f }
+                "MONTH" -> FloatArray(30) { 0f }
+                "YEAR" -> FloatArray(12) { 0f }
+                else -> FloatArray(7) { 0f }
+            }
+        }
+        val calendar = Calendar.getInstance()
+        when (activityFilter) {
+            "WEEK" -> {
+                val data = FloatArray(7)
+                for (i in 0..6) {
+                    val targetDay = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -i) }
+                    val dayXp = logs.filter { log ->
+                        val logCal = Calendar.getInstance().apply { timeInMillis = log.timestamp }
+                        logCal.get(Calendar.YEAR) == targetDay.get(Calendar.YEAR) &&
+                                logCal.get(Calendar.DAY_OF_YEAR) == targetDay.get(Calendar.DAY_OF_YEAR)
+                    }.sumOf { it.xpEarned }
+                    data[6 - i] = dayXp.toFloat()
+                }
+                data
+            }
+            "MONTH" -> {
+                val data = FloatArray(30)
+                for (i in 0..29) {
+                    val targetDay = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -i) }
+                    val dayXp = logs.filter { log ->
+                        val logCal = Calendar.getInstance().apply { timeInMillis = log.timestamp }
+                        logCal.get(Calendar.YEAR) == targetDay.get(Calendar.YEAR) &&
+                                logCal.get(Calendar.DAY_OF_YEAR) == targetDay.get(Calendar.DAY_OF_YEAR)
+                    }.sumOf { it.xpEarned }
+                    data[29 - i] = dayXp.toFloat()
+                }
+                data
+            }
+            "YEAR" -> {
+                val data = FloatArray(12)
+                for (i in 0..11) {
+                    val targetMonth = Calendar.getInstance().apply { add(Calendar.MONTH, -i) }
+                    val monthXp = logs.filter { log ->
+                        val logCal = Calendar.getInstance().apply { timeInMillis = log.timestamp }
+                        logCal.get(Calendar.YEAR) == targetMonth.get(Calendar.YEAR) &&
+                                logCal.get(Calendar.MONTH) == targetMonth.get(Calendar.MONTH)
+                    }.sumOf { it.xpEarned }
+                    data[11 - i] = monthXp.toFloat()
+                }
+                data
+            }
+            else -> FloatArray(7)
+        }
+    }
+
+    val activityLabels = remember(activityFilter) {
+        when (activityFilter) {
+            "WEEK" -> {
+                val format = SimpleDateFormat("E", Locale.getDefault())
+                val days = mutableListOf<String>()
+                for (i in 0..6) {
+                    val targetDay = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -i) }
+                    days.add(format.format(targetDay.time).take(1)) // M, T, W...
+                }
+                days.reversed()
+            }
+            "MONTH" -> {
+                listOf("W1", "W2", "W3", "W4", "W5")
+            }
+            "YEAR" -> {
+                val format = SimpleDateFormat("MMM", Locale.getDefault())
+                val months = mutableListOf<String>()
+                for (i in 0..11) {
+                    val targetMonth = Calendar.getInstance().apply { add(Calendar.MONTH, -i) }
+                    months.add(format.format(targetMonth.time).take(1))
+                }
+                months.reversed()
+            }
+            else -> emptyList()
+        }
+    }
+
+    val todayXp = remember(logs) {
+        val today = Calendar.getInstance()
+        logs.filter { log ->
+            val logCal = Calendar.getInstance().apply { timeInMillis = log.timestamp }
+            logCal.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
+                    logCal.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR)
+        }.sumOf { it.xpEarned }
+    }
+
+    val avgDuration = remember(logs) {
+        if (logs.isEmpty()) 0.0 else logs.map { it.durationMinutes }.average()
+    }
+    val completionRate = remember(logs) {
+        if (logs.isEmpty()) 0.0 else (logs.count { it.isCompleted }.toDouble() / logs.size.toDouble()) * 100.0
+    }
+    val totalCalories = remember(logs, user.agi) {
+        if (logs.isEmpty()) 0 else {
+            val duration = logs.sumOf { it.durationMinutes }
+            (duration * (8.0 + user.agi * 0.1)).toInt()
+        }
+    }
+    val nextRankText = remember(user.level) {
+        when {
+            user.level < 10 -> "D-Rank (Lvl 10)"
+            user.level < 20 -> "C-Rank (Lvl 20)"
+            user.level < 30 -> "B-Rank (Lvl 30)"
+            user.level < 40 -> "A-Rank (Lvl 40)"
+            user.level < 50 -> "S-Rank (Lvl 50)"
+            else -> "Max S-Rank"
+        }
+    }
+
+    val weekText = remember(weekOffset) {
+        val startCal = Calendar.getInstance().apply {
+            add(Calendar.DAY_OF_YEAR, -weekOffset * 7 - 6)
+        }
+        val endCal = Calendar.getInstance().apply {
+            add(Calendar.DAY_OF_YEAR, -weekOffset * 7)
+        }
+        val sdf = SimpleDateFormat("MMM d", Locale.getDefault())
+        if (weekOffset == 0) {
+            "THIS WEEK (${sdf.format(startCal.time)} - ${sdf.format(endCal.time)})"
+        } else {
+            "${weekOffset} WEEKS AGO (${sdf.format(startCal.time)} - ${sdf.format(endCal.time)})"
+        }
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                AnalyticsCard(title = "LEVEL", value = user.level.toString(), isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.width(8.dp))
+                AnalyticsCard(title = "RANK", value = user.rank, isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                AnalyticsCard(title = "TODAY XP", value = todayXp.toString(), isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.width(8.dp))
+                AnalyticsCard(title = "TOTAL XP", value = (user.level * 1000 + user.currentXp).toString(), isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                AnalyticsCard(title = "STREAK", value = user.currentStreak.toString(), isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.width(8.dp))
+                AnalyticsCard(title = "BEST STREAK", value = user.bestStreak.toString(), isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                AnalyticsCard(title = "AVG DURATION", value = String.format(Locale.getDefault(), "%.1f m", avgDuration), isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.width(8.dp))
+                AnalyticsCard(title = "COMPLETION", value = String.format(Locale.getDefault(), "%.1f%%", completionRate), isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                AnalyticsCard(title = "CALORIES", value = "$totalCalories kcal", isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.width(8.dp))
+                AnalyticsCard(title = "NEXT RANK", value = nextRankText, isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        item {
+            // Filter Buttons Header Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = when(activityFilter) {
+                        "WEEK" -> "WEEKLY ACTIVITY"
+                        "MONTH" -> "MONTHLY ACTIVITY"
+                        else -> "YEARLY ACTIVITY"
+                    },
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Start
+                )
+
+                // Toggle Buttons: WEEK, MONTH, YEAR
+                Row(
+                    modifier = Modifier.border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp)).background(Color.Black.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                ) {
+                    listOf("WEEK", "MONTH", "YEAR").forEach { f ->
+                        val isSel = activityFilter == f
+                        Box(
+                            modifier = Modifier
+                                .clickable {
+                                    activityFilter = f
+                                    SoundManager.playNavigation()
+                                }
+                                .background(if (isSel) primaryColor.copy(alpha = 0.2f) else Color.Transparent, RoundedCornerShape(8.dp))
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = f,
+                                color = if (isSel) primaryColor else Color.Gray,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Canvas Graph
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .border(1.dp, Color.DarkGray.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                    .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                    .padding(16.dp)
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val width = size.width
+                    val height = size.height
+                    val maxVal = maxOf(activityData.maxOrNull() ?: 100f, 100f)
+
+                    val points = activityData.mapIndexed { index, value ->
+                        val x = if (activityData.size > 1) (width / (activityData.size - 1).toFloat()) * index else 0f
+                        val y = height - (value / maxVal) * (height - 40f) - 20f
+                        Offset(x, y)
+                    }
+
+                    // Draw grid lines
+                    drawLine(Color.DarkGray.copy(alpha = 0.2f), Offset(0f, height * 0.25f), Offset(width, height * 0.25f))
+                    drawLine(Color.DarkGray.copy(alpha = 0.2f), Offset(0f, height * 0.5f), Offset(width, height * 0.5f))
+                    drawLine(Color.DarkGray.copy(alpha = 0.2f), Offset(0f, height * 0.75f), Offset(width, height * 0.75f))
+
+                    // Draw smooth curve
+                    if (points.size > 1) {
+                        val path = Path()
+                        path.moveTo(points[0].x, points[0].y)
+                        for (i in 0 until points.size - 1) {
+                            val p0 = points[i]
+                            val p1 = points[i + 1]
+                            val cpX1 = p0.x + (p1.x - p0.x) / 2f
+                            val cpY1 = p0.y
+                            val cpX2 = p0.x + (p1.x - p0.x) / 2f
+                            val cpY2 = p1.y
+                            path.cubicTo(cpX1, cpY1, cpX2, cpY2, p1.x, p1.y)
+                        }
+
+                        // Fill area under the path
+                        val fillPath = Path()
+                        fillPath.addPath(path)
+                        fillPath.lineTo(points.last().x, height)
+                        fillPath.lineTo(points.first().x, height)
+                        fillPath.close()
+
+                        drawPath(
+                            path = fillPath,
+                            brush = Brush.verticalGradient(
+                                colors = listOf(primaryColor.copy(alpha = 0.3f), Color.Transparent),
+                                startY = 0f,
+                                endY = height
+                            )
+                        )
+
+                        drawPath(
+                            path = path,
+                            color = primaryColor,
+                            style = Stroke(width = 8f, cap = StrokeCap.Round)
+                        )
+                    }
+
+                    // Draw glow points
+                    points.forEach { pt ->
+                        drawCircle(primaryColor, radius = 6f, center = pt)
+                        drawCircle(Color.White, radius = 2f, center = pt)
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Graph Labels Row
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                activityLabels.forEach { label ->
+                    Text(label, color = Color.Gray, fontSize = 12.sp, modifier = Modifier.width(24.dp), textAlign = TextAlign.Center)
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        item {
+            // Consistency Grid Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "CONSISTENCY",
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium
+                )
+
+                // Chevron navigation arrows for swiping through weeks
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { weekOffset++; SoundManager.playNavigation() }) {
+                        Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Prev Week", tint = primaryColor)
+                    }
+                    Text(
+                        text = weekText,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    IconButton(
+                        onClick = { if (weekOffset > 0) weekOffset--; SoundManager.playNavigation() },
+                        enabled = weekOffset > 0
+                    ) {
+                        Icon(
+                            Icons.Default.KeyboardArrowRight,
+                            contentDescription = "Next Week",
+                            tint = if (weekOffset > 0) primaryColor else Color.Gray
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Swipeable Consistency Row Grid
+            var dragAmountTotal by remember { mutableStateOf(0f) }
+            val weekDaysOfWeekLabels = listOf("S", "M", "T", "W", "T", "F", "S")
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, Color.DarkGray.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                    .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                    .pointerInput(Unit) {
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                if (dragAmountTotal > 50f) {
+                                    // Swipe right -> go back in time
+                                    weekOffset++
+                                    SoundManager.playNavigation()
+                                } else if (dragAmountTotal < -50f) {
+                                    // Swipe left -> go closer to today
+                                    if (weekOffset > 0) {
+                                        weekOffset--
+                                        SoundManager.playNavigation()
+                                    }
+                                }
+                                dragAmountTotal = 0f
+                            },
+                            onHorizontalDrag = { change, dragAmount ->
+                                change.consume()
+                                dragAmountTotal += dragAmount
+                            }
+                        )
+                    }
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceAround
+            ) {
+                for (i in 0..6) {
+                    val targetDay = Calendar.getInstance().apply {
+                        add(Calendar.DAY_OF_YEAR, -weekOffset * 7 - 6 + i)
+                    }
+                    val isDayCompleted = logs.any { log ->
+                        val logCal = Calendar.getInstance().apply { timeInMillis = log.timestamp }
+                        log.isCompleted &&
+                                logCal.get(Calendar.YEAR) == targetDay.get(Calendar.YEAR) &&
+                                logCal.get(Calendar.DAY_OF_YEAR) == targetDay.get(Calendar.DAY_OF_YEAR)
+                    }
+                    val dayName = weekDaysOfWeekLabels[targetDay.get(Calendar.DAY_OF_WEEK) - 1]
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .border(1.dp, if (isDayCompleted) primaryColor else Color.DarkGray, RoundedCornerShape(6.dp))
+                                .background(
+                                    if (isDayCompleted) primaryColor.copy(alpha = 0.2f) else Color.Transparent,
+                                    RoundedCornerShape(6.dp)
+                                )
+                                .neonPanel(
+                                    color = if (isDayCompleted) primaryColor else Color.Transparent,
+                                    borderRadius = 6.dp,
+                                    blurRadius = if (isDayCompleted) 8.dp else 0.dp
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isDayCompleted) {
+                                Icon(Icons.Default.Check, contentDescription = "Done", tint = primaryColor, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(dayName, color = Color.Gray, fontSize = 12.sp)
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+fun AnalyticsCard(title: String, value: String, isDarkMode: Boolean, modifier: Modifier = Modifier) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+
+    Box(
+        modifier = modifier
+            .border(1.dp, primaryColor.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+            .background(if (isDarkMode) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+            .padding(12.dp)
+    ) {
+        Column {
+            Text(title, color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(value, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
+        }
+    }
+}
+
+@Composable
+fun ProfileTabContent(
+    user: User,
+    workoutLogs: List<WorkoutLogEntity>,
+    onUpdateTheme: (String) -> Unit,
+    onUpdateWorkoutDays: (String, Int) -> Unit,
+    onUpdateCustomTimers: (Int, Int) -> Unit,
+    onToggleBpMode: () -> Unit,
+    onToggleDarkMode: () -> Unit,
+    onToggleSkipIntro: () -> Unit,
+    onChangeStartRank: (String) -> Unit,
+    onResetSystemData: () -> Unit,
+    onBackupProfile: () -> Unit,
+    onRestoreProfile: ((Boolean) -> Unit) -> Unit,
+    onDeleteWorkoutLog: (Long) -> Unit,
+    onAddWorkoutLog: (Long, Int, Int) -> Unit,
+    onForceTriggerPenalty: () -> Unit
+) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val context = LocalContext.current
+    var isThemeDropdownExpanded by remember { mutableStateOf(false) }
+
+    val themes = listOf(
+        "SOLO_BLUE" to "Solo Leveling Blue",
+        "MONARCH_RED" to "Monarch Red",
+        "SHADOW_PURPLE" to "Shadow Purple",
+        "GATEKEEPER_GREEN" to "Gatekeeper Green"
+    )
+
+    var workoutDays by remember { mutableStateOf(user.targetWorkoutDaysPerWeek) }
+    var activeTimer by remember { mutableStateOf(if (user.customActiveDurationSeconds == 0) 30 else user.customActiveDurationSeconds) }
+    var restTimer by remember { mutableStateOf(if (user.customRestDurationSeconds == 0) 30 else user.customRestDurationSeconds) }
+
+    var useFormulaTimers by remember { mutableStateOf(user.customActiveDurationSeconds == 0) }
+    var showRankDialogFor by remember { mutableStateOf<String?>(null) }
+    var showAddLogDialog by remember { mutableStateOf(false) }
+
+    var isProfileExpanded by remember { mutableStateOf(false) }
+    var isLookExpanded by remember { mutableStateOf(false) }
+    var isAudioExpanded by remember { mutableStateOf(false) }
+    var isControlsExpanded by remember { mutableStateOf(false) }
+    var isLogsExpanded by remember { mutableStateOf(false) }
+    var isDataExpanded by remember { mutableStateOf(false) }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.Start
+    ) {
+        item {
+            GlitchText(
+                text = "SYSTEM SETTINGS",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold
+                ),
+                color = primaryColor,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        // 1. PROFILE CONFIGURATION
+        item {
+            SettingsFolder(
+                title = "PROFILE CONFIGURATION",
+                icon = Icons.Default.Person,
+                expanded = isProfileExpanded,
+                onToggle = { isProfileExpanded = !isProfileExpanded; SoundManager.playNavigation() }
+            ) {
+                Text("TARGET WORKOUT DAYS PER WEEK", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Active days selection (S M T W T F S)
+                val daysOfWeekLabels = listOf("S", "M", "T", "W", "T", "F", "S")
+                val selectedDaysList = remember(user.workoutDaysOfWeek) {
+                    user.workoutDaysOfWeek.split(",").filter { it.isNotEmpty() }.mapNotNull { it.toIntOrNull() }.toSet()
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp))
+                        .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    for (i in 1..7) {
+                        val isSelected = selectedDaysList.contains(i)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .border(
+                                    1.dp,
+                                    if (isSelected) primaryColor else Color.DarkGray,
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .background(
+                                    if (isSelected) primaryColor.copy(alpha = 0.2f) else Color.Transparent,
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .clickable {
+                                    val newSelected = if (isSelected) {
+                                        if (selectedDaysList.size > 1) {
+                                            selectedDaysList - i
+                                        } else {
+                                            Toast.makeText(context, "Must select at least 1 workout day!", Toast.LENGTH_SHORT).show()
+                                            selectedDaysList
+                                        }
+                                    } else {
+                                        selectedDaysList + i
+                                    }
+                                    val daysStr = newSelected.sorted().joinToString(",")
+                                    onUpdateWorkoutDays(daysStr, newSelected.size)
+                                    SoundManager.playNavigation()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = daysOfWeekLabels[i - 1],
+                                color = if (isSelected) primaryColor else Color.Gray,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "${selectedDaysList.size} Days selected per week",
+                    color = Color.Gray,
+                    fontSize = 12.sp,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+
+        // 2. SYSTEM LOOK & THEME
+        item {
+            SettingsFolder(
+                title = "SYSTEM LOOK & THEME",
+                icon = Icons.Default.Star,
+                expanded = isLookExpanded,
+                onToggle = { isLookExpanded = !isLookExpanded; SoundManager.playNavigation() }
+            ) {
+                // Theme Selector
+                Text("SYSTEM LOOK (THEME)", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp))
+                        .clickable { isThemeDropdownExpanded = true }
+                        .padding(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = themes.firstOrNull { it.first == user.theme }?.second ?: "Default Blue",
+                            color = primaryColor,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Theme", tint = Color.Gray)
+                    }
+
+                    DropdownMenu(
+                        expanded = isThemeDropdownExpanded,
+                        onDismissRequest = { isThemeDropdownExpanded = false },
+                        modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).border(1.dp, Color.DarkGray)
+                    ) {
+                        themes.forEach { theme ->
+                            DropdownMenuItem(
+                                text = { Text(theme.second, color = MaterialTheme.colorScheme.onBackground) },
+                                onClick = {
+                                    onUpdateTheme(theme.first)
+                                    isThemeDropdownExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Dark Mode Toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("DARK MODE STYLE", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("Toggle between light and dark background systems", color = Color.Gray, fontSize = 11.sp)
+                    }
+                    Switch(
+                        checked = user.isDarkMode,
+                        onCheckedChange = { onToggleDarkMode() },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = primaryColor,
+                            checkedTrackColor = primaryColor.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+            }
+        }
+
+        // 3. AUDIO CONFIGURATION
+        item {
+            val audioPrefs = context.getSharedPreferences("system_fit_audio", Context.MODE_PRIVATE)
+            var audioEnabled by remember { mutableStateOf(audioPrefs.getBoolean("audio_enabled", true)) }
+            var audioVolume by remember { mutableStateOf(audioPrefs.getFloat("audio_volume", 0.5f)) }
+
+            SettingsFolder(
+                title = "AUDIO CONFIGURATION",
+                icon = Icons.Default.Info,
+                expanded = isAudioExpanded,
+                onToggle = { isAudioExpanded = !isAudioExpanded; SoundManager.playNavigation() }
+            ) {
+                // Audio On/Off Toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("SOUND EFFECTS", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("Enable or disable in-app game sound effects", color = Color.Gray, fontSize = 11.sp)
+                    }
+                    Switch(
+                        checked = audioEnabled,
+                        onCheckedChange = { enabled ->
+                            audioEnabled = enabled
+                            audioPrefs.edit().putBoolean("audio_enabled", enabled).apply()
+                            if (!enabled) {
+                                SoundManager.stopStartup()
+                            } else {
+                                SoundManager.playNavigation()
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = primaryColor,
+                            checkedTrackColor = primaryColor.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+                
+                if (audioEnabled) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    // Audio Volume Slider
+                    Text("VOLUME LEVEL: ${(audioVolume * 100).toInt()}%", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Slider(
+                        value = audioVolume,
+                        onValueChange = { volume ->
+                            audioVolume = volume
+                            audioPrefs.edit().putFloat("audio_volume", volume).apply()
+                        },
+                        onValueChangeFinished = {
+                            SoundManager.playNavigation()
+                        },
+                        valueRange = 0f..1f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = primaryColor,
+                            activeTrackColor = primaryColor,
+                            inactiveTrackColor = Color.DarkGray
+                        )
+                    )
+                }
+            }
+        }
+
+        // 4. SYSTEM CONTROLS
+        item {
+            SettingsFolder(
+                title = "SYSTEM CONTROLS",
+                icon = Icons.Default.Settings,
+                expanded = isControlsExpanded,
+                onToggle = { isControlsExpanded = !isControlsExpanded; SoundManager.playNavigation() }
+            ) {
+                // BP Mode Toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("BP/HYPERTENSION SAFE MODE", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("Exclude intense isometric movements for user safety", color = Color.Gray, fontSize = 11.sp)
+                    }
+                    Switch(
+                        checked = user.bpModeActive,
+                        onCheckedChange = { onToggleBpMode() },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = primaryColor,
+                            checkedTrackColor = primaryColor.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Skip Intro Toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("SKIP BOOT SEQUENCE INTRO", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("Bypass splash screen animations on app startup", color = Color.Gray, fontSize = 11.sp)
+                    }
+                    Switch(
+                        checked = user.skipIntro,
+                        onCheckedChange = { onToggleSkipIntro() },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = primaryColor,
+                            checkedTrackColor = primaryColor.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Choose Starting Rank Badge Row
+                Text("CHOOSE STARTING RANK", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp))
+                        .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val ranks = listOf("E", "D", "C", "B", "A", "S")
+                    ranks.forEach { r ->
+                        val isCurrent = user.rank.startsWith(r)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .border(
+                                    1.dp,
+                                    if (isCurrent) primaryColor else Color.DarkGray,
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .background(
+                                    if (isCurrent) primaryColor.copy(alpha = 0.2f) else Color.Transparent,
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .clickable {
+                                    showRankDialogFor = r
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = r,
+                                color = if (isCurrent) AlertGold else Color.Gray,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Custom timers checkbox
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("CUSTOM WORKOUT TIMERS", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Use Stats Formula", color = Color.Gray, fontSize = 12.sp)
+                        Checkbox(
+                            checked = useFormulaTimers,
+                            onCheckedChange = { checked ->
+                                useFormulaTimers = checked
+                                if (checked) {
+                                    onUpdateCustomTimers(0, 0)
+                                } else {
+                                    onUpdateCustomTimers(activeTimer, restTimer)
+                                }
+                            },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = primaryColor,
+                                uncheckedColor = Color.DarkGray
+                            )
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (!useFormulaTimers) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp))
+                            .padding(12.dp)
+                    ) {
+                        // Active Timer Selector
+                        Text("Active Interval: $activeTimer seconds", color = Color.Gray, fontSize = 13.sp)
+                        Slider(
+                            value = activeTimer.toFloat(),
+                            onValueChange = { activeTimer = it.toInt() },
+                            onValueChangeFinished = { onUpdateCustomTimers(activeTimer, restTimer) },
+                            valueRange = 10f..180f,
+                            colors = SliderDefaults.colors(
+                                thumbColor = primaryColor,
+                                activeTrackColor = primaryColor,
+                                inactiveTrackColor = Color.DarkGray
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Rest Timer Selector
+                        Text("Rest Interval: $restTimer seconds", color = Color.Gray, fontSize = 13.sp)
+                        Slider(
+                            value = restTimer.toFloat(),
+                            onValueChange = { restTimer = it.toInt() },
+                            onValueChangeFinished = { onUpdateCustomTimers(activeTimer, restTimer) },
+                            valueRange = 10f..180f,
+                            colors = SliderDefaults.colors(
+                                thumbColor = primaryColor,
+                                activeTrackColor = primaryColor,
+                                inactiveTrackColor = Color.DarkGray
+                            )
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp))
+                            .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
+                            .padding(12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Calculated using VIT and AGI attributes.",
+                            color = Color.Gray,
+                            textAlign = TextAlign.Center,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = {
+                        onForceTriggerPenalty()
+                        Toast.makeText(context, "Penalty Protocol Triggered!", Toast.LENGTH_SHORT).show()
+                        SoundManager.playPenalty()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF3333)),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth().height(45.dp).border(1.dp, Color.Red, RoundedCornerShape(8.dp))
+                ) {
+                    Text("FORCE TRIGGER PENALTY", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
+        }
+
+        // 5. DATA MANAGEMENT
+        item {
+            SettingsFolder(
+                title = "DATA MANAGEMENT",
+                icon = Icons.Default.Refresh,
+                expanded = isDataExpanded,
+                onToggle = { isDataExpanded = !isDataExpanded; SoundManager.playNavigation() }
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Button(
+                        onClick = {
+                            onBackupProfile()
+                            Toast.makeText(context, "System Profile Backed Up Successfully!", Toast.LENGTH_SHORT).show()
+                            SoundManager.playNavigation()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.weight(1f).height(45.dp).border(1.dp, Color(0xFF00E5FF), RoundedCornerShape(8.dp))
+                    ) {
+                        Text("BACKUP PROFILE", color = AbsoluteBlack, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Button(
+                        onClick = {
+                            onRestoreProfile { success ->
+                                if (success) {
+                                    Toast.makeText(context, "System Profile Restored Successfully!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "ERROR: No System Profile Backup Found!", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            SoundManager.playNavigation()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF33FF99)),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.weight(1f).height(45.dp).border(1.dp, Color(0xFF33FF99), RoundedCornerShape(8.dp))
+                    ) {
+                        Text("RESTORE PROFILE", color = AbsoluteBlack, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = onResetSystemData,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF3333)),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(45.dp)
+                        .border(1.dp, Color.Red, RoundedCornerShape(8.dp))
+                ) {
+                    Text("RESET SYSTEM DATA", color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, fontSize = 12.sp)
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Backup & Restore file location:\n/data/data/com.sololeveling.systemfit/shared_prefs/system_fit_backup.xml",
+                    color = Color.Gray,
+                    fontSize = 11.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+
+        // 6. WORKOUT LOGS
+        item {
+            SettingsFolder(
+                title = "WORKOUT LOGS",
+                icon = Icons.Default.List,
+                expanded = isLogsExpanded,
+                onToggle = { isLogsExpanded = !isLogsExpanded; SoundManager.playNavigation() }
+            ) {
+                Button(
+                    onClick = { showAddLogDialog = true; SoundManager.playNavigation() },
+                    colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth().height(45.dp).border(1.dp, primaryColor, RoundedCornerShape(8.dp))
+                ) {
+                    Text("ADD WORKOUT SESSION", color = AbsoluteBlack, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (workoutLogs.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("No workout logs recorded.", color = Color.Gray, fontSize = 13.sp)
+                    }
+                } else {
+                    workoutLogs.forEach { log ->
+                        val dateStr = remember(log.timestamp) {
+                            val date = Date(log.timestamp)
+                            val format = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
+                            format.format(date)
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp)
+                                .border(1.dp, Color.DarkGray.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                                .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.2f) else Color.White, RoundedCornerShape(8.dp))
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = if (log.isPenaltyZone) "PENALTY SURVIVAL" else if (log.isCompleted) "QUEST COMPLETED" else "EMERGENCY HALT",
+                                    color = if (log.isCompleted) primaryColor else if (log.isPenaltyZone) Color(0xFFFF5C5C) else Color.Yellow,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(dateStr, color = Color.Gray, fontSize = 11.sp)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text("Duration: ${log.durationMinutes} mins | XP: +${log.xpEarned}", color = Color.Gray, fontSize = 11.sp)
+                            }
+                            IconButton(
+                                onClick = {
+                                    onDeleteWorkoutLog(log.logId)
+                                    SoundManager.playNavigation()
+                                }
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete Log", tint = Color(0xFFFF3333))
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+
+    if (showAddLogDialog) {
+        var xpInput by remember { mutableStateOf(50) }
+        var durationInput by remember { mutableStateOf(15) }
+        var selectedTypeIndex by remember { mutableStateOf(0) }
+        val types = listOf("CARDIO", "STRENGTH", "FLEXIBILITY")
+
+        Dialog(onDismissRequest = { showAddLogDialog = false }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(2.dp, primaryColor, RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.background, RoundedCornerShape(8.dp))
+                    .padding(24.dp)
+            ) {
+                Column(horizontalAlignment = Alignment.Start) {
+                    Text(
+                        text = "ADD WORKOUT LOG",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = primaryColor,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text("WORKOUT TYPE", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        types.forEachIndexed { idx, type ->
+                            val isSelected = selectedTypeIndex == idx
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 4.dp)
+                                    .border(1.dp, if (isSelected) primaryColor else Color.DarkGray, RoundedCornerShape(8.dp))
+                                    .background(if (isSelected) primaryColor.copy(alpha = 0.2f) else Color.Transparent, RoundedCornerShape(8.dp))
+                                    .clickable { selectedTypeIndex = idx; SoundManager.playNavigation() }
+                                    .padding(8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(type, color = if (isSelected) primaryColor else Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text("XP EARNED: $xpInput XP", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Slider(
+                        value = xpInput.toFloat(),
+                        onValueChange = { xpInput = it.toInt() },
+                        valueRange = 10f..200f,
+                        colors = SliderDefaults.colors(thumbColor = primaryColor, activeTrackColor = primaryColor, inactiveTrackColor = Color.DarkGray)
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text("DURATION: $durationInput MINS", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Slider(
+                        value = durationInput.toFloat(),
+                        onValueChange = { durationInput = it.toInt() },
+                        valueRange = 5f..60f,
+                        colors = SliderDefaults.colors(thumbColor = primaryColor, activeTrackColor = primaryColor, inactiveTrackColor = Color.DarkGray)
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        TextButton(onClick = { showAddLogDialog = false; SoundManager.playNavigation() }) {
+                            Text("CANCEL", color = Color.Gray, fontWeight = FontWeight.Bold)
+                        }
+                        Button(
+                            onClick = {
+                                onAddWorkoutLog(System.currentTimeMillis(), xpInput, durationInput)
+                                showAddLogDialog = false
+                                SoundManager.playNavigation()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
+                        ) {
+                            Text("SAVE LOG", color = AbsoluteBlack, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showRankDialogFor != null) {
+        val selectedRank = showRankDialogFor!!
+        Dialog(onDismissRequest = { showRankDialogFor = null }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(2.dp, primaryColor, RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.background, RoundedCornerShape(8.dp))
+                    .padding(24.dp)
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "CONFIRM RANK SELECTION",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = primaryColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Re-specing will reset your attributes to base level of the chosen ${selectedRank}-Rank. Current progress will be lost. Confirm?",
+                        color = MaterialTheme.colorScheme.onBackground,
+                        textAlign = TextAlign.Center,
+                        fontSize = 14.sp
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        TextButton(onClick = { showRankDialogFor = null }) {
+                            Text("CANCEL", color = Color.Gray)
+                        }
+                        Button(
+                            onClick = {
+                                onChangeStartRank(selectedRank)
+                                SoundManager.playLevelUp()
+                                Toast.makeText(context, "Rank updated to ${selectedRank}-Rank!", Toast.LENGTH_SHORT).show()
+                                showRankDialogFor = null
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
+                        ) {
+                            Text("CONFIRM", color = AbsoluteBlack, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+}
+
+@Composable
+fun RenameDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var text by remember { mutableStateOf(currentName) }
+    val primaryColor = MaterialTheme.colorScheme.primary
+
+    Dialog(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(2.dp, primaryColor, RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.background, RoundedCornerShape(8.dp))
+                .padding(24.dp)
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "RENAME PLAYER",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = primaryColor,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    singleLine = true,
+                    label = { Text("Player Name", color = Color.Gray) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = primaryColor,
+                        unfocusedBorderColor = Color.DarkGray,
+                        focusedLabelColor = primaryColor,
+                        unfocusedLabelColor = Color.Gray,
+                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("CANCEL", color = Color.Gray)
+                    }
+                    Button(
+                        onClick = { onConfirm(text) },
+                        colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
+                    ) {
+                        Text("CONFIRM", color = AbsoluteBlack, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun InfoDialog(onDismiss: () -> Unit) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+
+    Dialog(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(2.dp, primaryColor, RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.background, RoundedCornerShape(8.dp))
+                .padding(24.dp)
+        ) {
+            Column(horizontalAlignment = Alignment.Start) {
+                Text(
+                    text = "SYSTEM INFORMATION",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = primaryColor,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text("EXP BREAKDOWN", color = AlertGold, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text(
+                    text = "You earn 200 XP upon clearing the standard Daily Quest. Engaging the Panic Button halts the workout and transfers you to the recovery zone, granting a partial 100 XP. Level up requirement formula: 100 * Level^1.5.",
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text("STATS EXPLANATION", color = AlertGold, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text(
+                    text = "• STR (Strength): Increases physical capacity.\n• VIT (Vitality): Reduces dynamic Rest cooldown duration.\n• AGI (Agility): Increases dynamic exercise Active duration.",
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text("ROUTINE EXERCISES", color = AlertGold, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text(
+                    text = "The system generates a custom daily routine comprised of Isometric hold, Cardio, Flexibility and Strength movements. The exercise duration scales with level difficulty.",
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("OK", color = AbsoluteBlack, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsFolder(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val cardBg = if (MaterialTheme.colorScheme.background == Color.Black) {
+        Color.Black.copy(alpha = 0.4f)
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+
+    val angle by animateFloatAsState(targetValue = if (expanded) 180f else 0f, label = "arrow_rotation")
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .border(1.dp, if (expanded) primaryColor else Color.DarkGray, RoundedCornerShape(8.dp))
+            .background(cardBg, RoundedCornerShape(8.dp))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onToggle() }
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (expanded) primaryColor else Color.Gray,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = title,
+                    color = if (expanded) primaryColor else MaterialTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    letterSpacing = 1.sp
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.ArrowDropDown,
+                contentDescription = if (expanded) "Collapse" else "Expand",
+                tint = if (expanded) primaryColor else Color.Gray,
+                modifier = Modifier.rotate(angle)
+            )
+        }
+
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+            ) {
+                HorizontalDivider(
+                    color = primaryColor.copy(alpha = 0.3f),
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                content()
+            }
         }
     }
 }

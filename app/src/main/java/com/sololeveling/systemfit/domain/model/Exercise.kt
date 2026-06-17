@@ -6,5 +6,8 @@ data class Exercise(
     val type: ExerciseType,
     val description: String,
     val gifUrl: String,
-    val isHtnSafe: Boolean
+    val isHtnSafe: Boolean,
+    val tier: Int = 1,
+    val requiredStr: Int = 1
 )
+

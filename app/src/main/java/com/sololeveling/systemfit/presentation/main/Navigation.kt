@@ -8,10 +8,20 @@ import com.sololeveling.systemfit.presentation.dashboard.DashboardScreen
 import com.sololeveling.systemfit.presentation.workout.WorkoutScreen
 
 @Composable
-fun SystemFitNavigation() {
+fun SystemFitNavigation(startDestination: String = "splash") {
     val navController = rememberNavController()
 
-    NavHost(navController = navController, startDestination = "dashboard") {
+    NavHost(navController = navController, startDestination = startDestination) {
+        composable("splash") {
+            SplashScreen(
+                onTimeout = {
+                    com.sololeveling.systemfit.presentation.utils.SoundManager.stopStartup()
+                    navController.navigate("dashboard") {
+                        popUpTo("splash") { inclusive = true }
+                    }
+                }
+            )
+        }
         composable("dashboard") {
             DashboardScreen(
                 onNavigateToWorkout = { navController.navigate("workout") }

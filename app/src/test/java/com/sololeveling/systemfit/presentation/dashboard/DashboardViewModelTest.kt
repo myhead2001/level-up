@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import com.sololeveling.systemfit.domain.model.User
 import com.sololeveling.systemfit.domain.repository.UserRepository
+import com.sololeveling.systemfit.domain.usecase.GenerateDailyQuestUseCase
 import com.sololeveling.systemfit.utils.MainDispatcherRule
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -23,12 +24,15 @@ class DashboardViewModelTest {
 
     private lateinit var viewModel: DashboardViewModel
     private val userRepository: UserRepository = mockk(relaxed = true)
+    private val generateDailyQuestUseCase: GenerateDailyQuestUseCase = mockk(relaxed = true)
 
     @Before
     fun setUp() {
         val user = User("player_1", level = 5, str = 10, vit = 10, agi = 10, availableStatPoints = 3)
+        io.mockk.every { userRepository.getActiveUserId() } returns "player_1"
         coEvery { userRepository.getUserStream("player_1") } returns flowOf(user)
-        viewModel = DashboardViewModel(userRepository)
+        coEvery { generateDailyQuestUseCase.invoke(any()) } returns mockk()
+        viewModel = DashboardViewModel(userRepository, generateDailyQuestUseCase)
     }
 
     @Test

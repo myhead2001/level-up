@@ -13,17 +13,27 @@ interface WorkoutContract {
             val nextExerciseName: String?,
             val isRestPeriod: Boolean,
             val timeLeftSeconds: Int,
-            val totalTimeLeftSeconds: Int
+            val totalTimeLeftSeconds: Int,
+            val isPaused: Boolean = false,
+            val isBpModeActive: Boolean = false
         ) : UiState
-        data class PenaltyZone(val penaltyDurationMinutes: Int) : UiState
-        data class Victory(val xpEarned: Int, val levelUp: Boolean) : UiState
+        data class PenaltyZone(val timeLeftSeconds: Int) : UiState
+        data class ControlledRecovery(val timeLeftSeconds: Int) : UiState
+        data class Victory(val xpEarned: Int, val levelUp: Boolean, val playerLevel: Int) : UiState
+        data class Warmup(val timeLeftSeconds: Int, val isPaused: Boolean = false) : UiState
+        data class Cooldown(val timeLeftSeconds: Int, val isPaused: Boolean = false) : UiState
     }
 
     sealed interface UiEvent {
         object StartQuest : UiEvent
         object SkipRest : UiEvent
         object TriggerPanicButton : UiEvent // Immediate Emergency Halt
+        object SkipRecovery : UiEvent
         object ClaimRewards : UiEvent
+        object TogglePause : UiEvent
+        object NextExercise : UiEvent
+        object PrevExercise : UiEvent
+        object ExitWorkout : UiEvent
     }
 
     sealed interface SideEffect {
