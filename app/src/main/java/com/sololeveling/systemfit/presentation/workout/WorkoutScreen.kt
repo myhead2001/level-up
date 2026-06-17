@@ -21,6 +21,13 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.PlayArrow
 import java.util.Locale
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -365,6 +372,9 @@ fun WorkoutScreen(
                 }
             }
             is WorkoutContract.UiState.Setup -> {
+                LaunchedEffect(Unit) {
+                    SoundManager.playWindowOpen()
+                }
                 Box(modifier = Modifier.fillMaxSize()) {
                     IconButton(
                         onClick = {
@@ -528,7 +538,7 @@ fun WorkoutScreen(
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(horizontal = 16.dp)
                         )
-                        if (!state.isRestPeriod && (state.isBpModeActive || state.currentExercise.isHtnSafe)) {
+                        if (!state.isRestPeriod && state.isBpModeActive) {
                             Spacer(modifier = Modifier.height(12.dp))
                             Box(
                                 modifier = Modifier
@@ -635,18 +645,23 @@ fun WorkoutScreen(
                         }
 
                         // Emergency panic button
-                        Button(
-                            onClick = { viewModel.onEvent(WorkoutContract.UiEvent.TriggerPanicButton) },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF3333)),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth().height(55.dp)
-                        ) {
-                            Text("EMERGENCY HALT (BP/HEART SPIKE)", color = Color.White, fontWeight = FontWeight.Bold)
+                        if (state.isBpModeActive) {
+                            Button(
+                                onClick = { viewModel.onEvent(WorkoutContract.UiEvent.TriggerPanicButton) },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF3333)),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth().height(55.dp)
+                            ) {
+                                Text("EMERGENCY HALT (BP/HEART SPIKE)", color = Color.White, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
             }
             is WorkoutContract.UiState.PenaltyZone -> {
+                LaunchedEffect(Unit) {
+                    SoundManager.playPenalty()
+                }
                 val infiniteTransition = rememberInfiniteTransition(label = "penalty_flash")
                 val alphaVal by infiniteTransition.animateFloat(
                     initialValue = 0.3f,
@@ -894,6 +909,10 @@ fun WorkoutScreen(
 
                 var showRewardsDialog by remember { mutableStateOf(false) }
 
+                LaunchedEffect(Unit) {
+                    SoundManager.playWindowOpen()
+                }
+
                 LaunchedEffect(showRewardsDialog) {
                     if (showRewardsDialog) {
                         SoundManager.playClaimRewards()
@@ -962,14 +981,8 @@ fun WorkoutScreen(
                         }
 
                         if (state.levelUp) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "LEVEL UP!",
-                                color = AlertGold,
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.titleLarge,
-                                letterSpacing = 2.sp
-                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            LevelUpAnimation()
                         }
 
                         Spacer(modifier = Modifier.height(64.dp))
@@ -1042,6 +1055,74 @@ fun WorkoutScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun LevelUpAnimation() {
+    val infiniteTransition = rememberInfiniteTransition(label = "levelup_glow")
+    
+    val scale = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        scale.animateTo(
+            targetValue = 1.3f,
+            animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing)
+        )
+        scale.animateTo(
+            targetValue = 1.0f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessLow
+            )
+        )
+    }
+
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "glow_alpha"
+    )
+
+    Box(
+        modifier = Modifier
+            .graphicsLayer(
+                scaleX = scale.value,
+                scaleY = scale.value
+            )
+            .border(2.dp, AlertGold.copy(alpha = glowAlpha), RoundedCornerShape(12.dp))
+            .background(Color.Black.copy(alpha = 0.8f), RoundedCornerShape(12.dp))
+            .neonPanel(
+                color = AlertGold,
+                borderRadius = 12.dp,
+                blurRadius = (16.dp * glowAlpha)
+            )
+            .padding(horizontal = 32.dp, vertical = 16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            GlitchText(
+                text = "LEVEL UP",
+                style = MaterialTheme.typography.displaySmall.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 6.sp,
+                    fontFamily = FontFamily.Monospace
+                ),
+                color = AlertGold
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "PLAYER STATUS UPDATED",
+                color = Color.White,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp,
+                fontFamily = FontFamily.Monospace
+            )
         }
     }
 }

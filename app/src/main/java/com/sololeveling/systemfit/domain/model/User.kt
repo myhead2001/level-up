@@ -22,7 +22,7 @@ data class User(
     val customRestDurationSeconds: Int = 0,
     val lastWorkoutTimestamp: Long = 0L,
     val penaltyActive: Boolean = false,
-    val bpModeActive: Boolean = true,
+    val bpModeActive: Boolean = false,
     val isDarkMode: Boolean = true,
     val skipIntro: Boolean = false
 ) {

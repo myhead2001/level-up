@@ -1,6 +1,7 @@
 package com.sololeveling.systemfit.presentation.main
 
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.clickable
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -47,28 +48,42 @@ fun SplashScreen(
     
     // Progress Indicator Animation
     val progressAnim = remember { Animatable(0f) }
+    var hasSkipped by remember { mutableStateOf(false) }
+
+    val skip = {
+        if (!hasSkipped) {
+            hasSkipped = true
+            SoundManager.stopStartup()
+            onTimeout()
+        }
+    }
 
     LaunchedEffect(Unit) {
         SoundManager.playStartup()
         // Trigger typewriter bootlog lines
         for (i in bootLines.indices) {
+            if (hasSkipped) break
             currentLineIndex = i
             val fullText = bootLines[i]
             displayedText = ""
             for (charIndex in 0..fullText.length) {
+                if (hasSkipped) break
                 displayedText = fullText.substring(0, charIndex)
                 delay(30)
             }
+            if (hasSkipped) break
             delay(350)
         }
         
-        // Finalize loading progress
-        progressAnim.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(durationMillis = 800, easing = LinearEasing)
-        )
-        delay(200)
-        onTimeout()
+        if (!hasSkipped) {
+            // Finalize loading progress
+            progressAnim.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 800, easing = LinearEasing)
+            )
+            delay(200)
+            onTimeout()
+        }
     }
 
     // Secondary launched effect to run the progress indicator slowly alongside log lines
@@ -83,6 +98,7 @@ fun SplashScreen(
         modifier = modifier
             .fillMaxSize()
             .background(darkBackground)
+            .clickable { skip() }
             .padding(32.dp),
         verticalArrangement = Arrangement.SpaceBetween,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -195,6 +211,15 @@ fun SplashScreen(
                 text = "SYNCHRONIZING SYSTEM DATA ... ${(progressAnim.value * 100).toInt()}%",
                 color = Color.Gray,
                 fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace,
+                letterSpacing = 1.sp,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "TAP TO SKIP SYSTEM BOOT PROTOCOL",
+                color = primaryColor.copy(alpha = 0.5f),
+                fontSize = 10.sp,
                 fontFamily = FontFamily.Monospace,
                 letterSpacing = 1.sp,
                 textAlign = TextAlign.Center

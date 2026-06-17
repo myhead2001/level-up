@@ -37,6 +37,7 @@ import android.content.Context
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.clip
 import com.sololeveling.systemfit.presentation.theme.AbsoluteBlack
 import com.sololeveling.systemfit.presentation.theme.AlertGold
 import java.text.SimpleDateFormat
@@ -45,6 +46,8 @@ import java.util.Date
 import java.util.Locale
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.activity.compose.rememberLauncherForActivityResult
+import android.os.Build
 
 @Composable
 fun DashboardScreen(
@@ -161,7 +164,10 @@ fun DashboardScreen(
                             user = activeUser,
                             onRenameClick = { showRenameDialog = true },
                             onInfoClick = { showInfoDialog = true },
-                            onAllocateStat = { viewModel.allocateStatPoint(it) },
+                            onAllocateStat = { 
+                                viewModel.allocateStatPoint(it)
+                                SoundManager.playStatBoost()
+                            },
                             onNavigateToWorkout = onNavigateToWorkout
                         )
                         1 -> QuestsTabContent(
@@ -536,11 +542,13 @@ fun QuestsTabContent(
                             fontSize = 12.sp,
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
-                        Text(
-                            text = "• SAFETY PROTOCOL -> ${if (user.bpModeActive) "ACTIVE (Hypertension Safe)" else "INACTIVE"}\nWhen active, the system filters out strenuous isometric holds (like planks and wall sits) to protect your cardiovascular system and keep blood pressure within safe limits.",
-                            color = MaterialTheme.colorScheme.onBackground,
-                            fontSize = 12.sp
-                        )
+                        if (user.bpModeActive) {
+                            Text(
+                                text = "• SAFETY PROTOCOL -> ACTIVE (Hypertension Safe)\nWhen active, the system filters out strenuous isometric holds (like planks and wall sits) to protect your cardiovascular system and keep blood pressure within safe limits.",
+                                color = MaterialTheme.colorScheme.onBackground,
+                                fontSize = 12.sp
+                            )
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(20.dp))
@@ -1088,6 +1096,7 @@ fun ProfileTabContent(
     var isProfileExpanded by remember { mutableStateOf(false) }
     var isLookExpanded by remember { mutableStateOf(false) }
     var isAudioExpanded by remember { mutableStateOf(false) }
+    var isNotificationsExpanded by remember { mutableStateOf(false) }
     var isControlsExpanded by remember { mutableStateOf(false) }
     var isLogsExpanded by remember { mutableStateOf(false) }
     var isDataExpanded by remember { mutableStateOf(false) }
@@ -1324,6 +1333,214 @@ fun ProfileTabContent(
             }
         }
 
+        // 3.5 NOTIFICATION REMINDERS
+        item {
+            val reminderPrefs = context.getSharedPreferences("system_fit_reminders", Context.MODE_PRIVATE)
+            var reminderEnabled by remember { mutableStateOf(reminderPrefs.getBoolean("reminder_enabled", false)) }
+            var reminderDays by remember { mutableStateOf(reminderPrefs.getString("reminder_days", "2,3,4,5,6") ?: "2,3,4,5,6") }
+            var reminderHour by remember { mutableStateOf(reminderPrefs.getInt("reminder_hour", 9)) }
+            var reminderMinute by remember { mutableStateOf(reminderPrefs.getInt("reminder_minute", 0)) }
+
+            val permissionLauncher = rememberLauncherForActivityResult(
+                contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+            ) { isGranted ->
+                if (isGranted) {
+                    reminderEnabled = true
+                    reminderPrefs.edit().putBoolean("reminder_enabled", true).apply()
+                    com.sololeveling.systemfit.presentation.utils.ReminderManager.scheduleNextReminder(context)
+                } else {
+                    reminderEnabled = false
+                    reminderPrefs.edit().putBoolean("reminder_enabled", false).apply()
+                    Toast.makeText(context, "Notification permission is required to enable reminders", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            val selectedDaysSet = remember(reminderDays) {
+                reminderDays.split(",")
+                    .filter { it.isNotEmpty() }
+                    .mapNotNull { it.toIntOrNull() }
+                    .toSet()
+            }
+
+            val onToggleDay = { day: Int ->
+                val newSet = if (selectedDaysSet.contains(day)) {
+                    selectedDaysSet - day
+                } else {
+                    selectedDaysSet + day
+                }
+                val newDaysString = newSet.sorted().joinToString(",")
+                reminderDays = newDaysString
+                reminderPrefs.edit().putString("reminder_days", newDaysString).apply()
+                com.sololeveling.systemfit.presentation.utils.ReminderManager.scheduleNextReminder(context)
+            }
+
+            val formattedTime = remember(reminderHour, reminderMinute) {
+                val amPm = if (reminderHour >= 12) "PM" else "AM"
+                val displayHour = when {
+                    reminderHour == 0 -> 12
+                    reminderHour > 12 -> reminderHour - 12
+                    else -> reminderHour
+                }
+                String.format("%02d:%02d %s", displayHour, reminderMinute, amPm)
+            }
+
+            val openTimePicker = {
+                val timePickerDialog = android.app.TimePickerDialog(
+                    context,
+                    { _, selectedHour, selectedMinute ->
+                        reminderHour = selectedHour
+                        reminderMinute = selectedMinute
+                        reminderPrefs.edit()
+                            .putInt("reminder_hour", selectedHour)
+                            .putInt("reminder_minute", selectedMinute)
+                            .apply()
+                        com.sololeveling.systemfit.presentation.utils.ReminderManager.scheduleNextReminder(context)
+                    },
+                    reminderHour,
+                    reminderMinute,
+                    false
+                )
+                timePickerDialog.show()
+            }
+
+            SettingsFolder(
+                title = "NOTIFICATION REMINDERS",
+                icon = Icons.Default.Notifications,
+                expanded = isNotificationsExpanded,
+                onToggle = { isNotificationsExpanded = !isNotificationsExpanded; SoundManager.playNavigation() }
+            ) {
+                // Master Toggle Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("DAILY QUEST REMINDERS", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("Get notified when it is time to complete your quest", color = Color.Gray, fontSize = 11.sp)
+                    }
+                    Switch(
+                        checked = reminderEnabled,
+                        onCheckedChange = { enabled ->
+                            if (enabled) {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    val permission = android.Manifest.permission.POST_NOTIFICATIONS
+                                    val isPermissionGranted = androidx.core.content.ContextCompat.checkSelfPermission(
+                                        context,
+                                        permission
+                                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                    
+                                    if (isPermissionGranted) {
+                                        reminderEnabled = true
+                                        reminderPrefs.edit().putBoolean("reminder_enabled", true).apply()
+                                        com.sololeveling.systemfit.presentation.utils.ReminderManager.scheduleNextReminder(context)
+                                    } else {
+                                        permissionLauncher.launch(permission)
+                                    }
+                                } else {
+                                    reminderEnabled = true
+                                    reminderPrefs.edit().putBoolean("reminder_enabled", true).apply()
+                                    com.sololeveling.systemfit.presentation.utils.ReminderManager.scheduleNextReminder(context)
+                                }
+                            } else {
+                                reminderEnabled = false
+                                reminderPrefs.edit().putBoolean("reminder_enabled", false).apply()
+                                com.sololeveling.systemfit.presentation.utils.ReminderManager.scheduleNextReminder(context)
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = primaryColor,
+                            checkedTrackColor = primaryColor.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Days of week selector
+                Text("REMINDER DAYS", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    val daysOfWeekLabels = listOf(
+                        1 to "S", // Sun
+                        2 to "M", // Mon
+                        3 to "T", // Tue
+                        4 to "W", // Wed
+                        5 to "T", // Thu
+                        6 to "F", // Fri
+                        7 to "S"  // Sat
+                    )
+                    daysOfWeekLabels.forEach { (dayInt, label) ->
+                        val isSelected = selectedDaysSet.contains(dayInt)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(
+                                    if (isSelected) primaryColor else Color.DarkGray.copy(alpha = 0.5f)
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    color = if (isSelected) primaryColor else Color.Gray,
+                                    shape = RoundedCornerShape(18.dp)
+                                )
+                                .clickable(enabled = reminderEnabled) {
+                                    onToggleDay(dayInt)
+                                    SoundManager.playNavigation()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                color = if (isSelected) AbsoluteBlack else Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Time picker row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("REMINDER TIME", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("Select daily workout reminder time", color = Color.Gray, fontSize = 11.sp)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = formattedTime,
+                            color = primaryColor,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(end = 12.dp)
+                        )
+                        Button(
+                            onClick = {
+                                openTimePicker()
+                                SoundManager.playNavigation()
+                            },
+                            enabled = reminderEnabled,
+                            colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                            shape = RoundedCornerShape(4.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text("SET TIME", color = AbsoluteBlack, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
+        }
+
         // 4. SYSTEM CONTROLS
         item {
             SettingsFolder(
@@ -1504,7 +1721,6 @@ fun ProfileTabContent(
                     onClick = {
                         onForceTriggerPenalty()
                         Toast.makeText(context, "Penalty Protocol Triggered!", Toast.LENGTH_SHORT).show()
-                        SoundManager.playPenalty()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF3333)),
                     shape = RoundedCornerShape(8.dp),

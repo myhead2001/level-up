@@ -85,7 +85,6 @@ class WorkoutViewModel @Inject constructor(
             // 2. If penalty is active, redirect straight to Penalty Zone
             if (activeUser.penaltyActive) {
                 startPenaltyZone()
-                SoundManager.playPenalty()
                 return@launch
             }
 
@@ -139,9 +138,6 @@ class WorkoutViewModel @Inject constructor(
     private fun triggerPanic() {
         timerJob?.cancel()
 
-        // Play system penalty chime to confirm receipt of emergency command
-        SoundManager.playPenalty()
-
         // Save workout result as partial immediately to log partial XP
         viewModelScope.launch {
             _sideEffects.send(WorkoutContract.SideEffect.TriggerHapticAlert)
@@ -193,6 +189,7 @@ class WorkoutViewModel @Inject constructor(
                 remaining--
             }
             // Cleansing Completed!
+            SoundManager.stopPenalty()
             val user = userRepository.getUser(activeUserId)
             if (user != null) {
                 val updatedUser = user.copy(penaltyActive = false)
@@ -295,6 +292,7 @@ class WorkoutViewModel @Inject constructor(
         recoveryTimerJob?.cancel()
         isWarmupActive = false
         isCooldownActive = false
+        SoundManager.stopPenalty()
         loadSetup()
     }
 

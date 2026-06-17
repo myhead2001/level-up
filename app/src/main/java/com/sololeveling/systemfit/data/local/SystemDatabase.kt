@@ -151,7 +151,7 @@ abstract class SystemDatabase : RoomDatabase() {
                 customRestDurationSeconds = 0,
                 lastWorkoutTimestamp = 0L,
                 penaltyActive = false,
-                bpModeActive = true,
+                bpModeActive = false,
                 isDarkMode = true,
                 skipIntro = false
             ))

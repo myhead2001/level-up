@@ -64,7 +64,8 @@ class UserRepositoryImpl @Inject constructor(
                                 customActiveDurationSeconds = 0,
                                 customRestDurationSeconds = 0,
                                 lastWorkoutTimestamp = 0L,
-                                penaltyActive = false
+                                penaltyActive = false,
+                                bpModeActive = false
                             )
                         )
                     }
@@ -117,7 +118,7 @@ class UserRepositoryImpl @Inject constructor(
                 customRestDurationSeconds = 0,
                 lastWorkoutTimestamp = 0L,
                 penaltyActive = false,
-                bpModeActive = true,
+                bpModeActive = false,
                 isDarkMode = true,
                 skipIntro = false
             )
@@ -172,7 +173,7 @@ class UserRepositoryImpl @Inject constructor(
             customRestDurationSeconds = sharedPrefs.getInt("backup_customRestDurationSeconds", 0),
             lastWorkoutTimestamp = sharedPrefs.getLong("backup_lastWorkoutTimestamp", 0L),
             penaltyActive = sharedPrefs.getBoolean("backup_penaltyActive", false),
-            bpModeActive = sharedPrefs.getBoolean("backup_bpModeActive", true),
+            bpModeActive = sharedPrefs.getBoolean("backup_bpModeActive", false),
             isDarkMode = sharedPrefs.getBoolean("backup_isDarkMode", true),
             skipIntro = sharedPrefs.getBoolean("backup_skipIntro", false)
         )

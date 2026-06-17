@@ -6,10 +6,12 @@ import com.sololeveling.systemfit.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 object SoundManager {
     private var appContext: Context? = null
     private val activePlayers = mutableListOf<MediaPlayer>()
+    private var penaltyPlayer: MediaPlayer? = null
 
     fun init(context: Context) {
         appContext = context.applicationContext
@@ -74,7 +76,64 @@ object SoundManager {
     }
 
     fun playPenalty() {
-        playSound(R.raw.penalty)
+        val ctx = appContext ?: return
+        val sharedPrefs = ctx.getSharedPreferences("system_fit_audio", Context.MODE_PRIVATE)
+        val isSoundEnabled = sharedPrefs.getBoolean("audio_enabled", true)
+        val volume = sharedPrefs.getFloat("audio_volume", 0.5f)
+
+        if (!isSoundEnabled) return
+
+        stopPenalty()
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val mediaPlayer = MediaPlayer.create(ctx, R.raw.penalty) ?: return@launch
+                mediaPlayer.setVolume(volume, volume)
+                mediaPlayer.isLooping = true
+                synchronized(this@SoundManager) {
+                    penaltyPlayer = mediaPlayer
+                }
+                mediaPlayer.start()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun stopPenalty() {
+        val player = synchronized(this) {
+            val p = penaltyPlayer
+            penaltyPlayer = null
+            p
+        } ?: return
+
+        val ctx = appContext ?: return
+        val sharedPrefs = ctx.getSharedPreferences("system_fit_audio", Context.MODE_PRIVATE)
+        val maxVolume = sharedPrefs.getFloat("audio_volume", 0.5f)
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                if (player.isPlaying) {
+                    val steps = 15
+                    val delayMs = 100L
+                    for (i in 0..steps) {
+                        val vol = maxVolume * (1.0f - (i.toFloat() / steps.toFloat()))
+                        if (player.isPlaying) {
+                            player.setVolume(vol, vol)
+                            delay(delayMs)
+                        } else {
+                            break
+                        }
+                    }
+                    if (player.isPlaying) {
+                        player.stop()
+                    }
+                }
+                player.release()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     fun playWindowOpen() {
