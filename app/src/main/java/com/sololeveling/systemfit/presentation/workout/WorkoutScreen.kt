@@ -126,6 +126,244 @@ fun WorkoutScreen(
                     CircularProgressIndicator(color = primaryColor)
                 }
             }
+            is WorkoutContract.UiState.Warmup -> {
+                val accentColor = Color(0xFFFF9100) // Golden Orange
+                Box(modifier = Modifier.fillMaxSize()) {
+                    IconButton(
+                        onClick = {
+                            viewModel.onEvent(WorkoutContract.UiEvent.ExitWorkout)
+                            onNavigateBack()
+                        },
+                        modifier = Modifier.padding(16.dp).align(Alignment.TopStart)
+                    ) {
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Exit", tint = MaterialTheme.colorScheme.onBackground)
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 64.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .border(1.dp, accentColor, RoundedCornerShape(4.dp))
+                                .background(accentColor.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 12.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "WARMUP PHASE",
+                                color = accentColor,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodySmall,
+                                letterSpacing = 1.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .size(220.dp)
+                                .neonPanel(color = accentColor)
+                                .background(Color.Black, RoundedCornerShape(12.dp))
+                                .border(1.dp, accentColor.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data("https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3o0aWF3eWZia3h5cGtqa2h5d21tZHBkbmh2ZzI2d2pxeWw3NWk1NCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/X8z9Z4lT475P9Yw472/giphy.gif")
+                                    .crossfade(true)
+                                    .build(),
+                                imageLoader = imageLoader,
+                                contentDescription = "Warmup Animation",
+                                modifier = Modifier.fillMaxSize().padding(12.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text(
+                            text = "PREPARE YOUR BODY",
+                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onBackground,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Prepare your body. Perform light stretching, arm circles, and gentle marching in place to raise your heart rate safely.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.Gray,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Box(contentAlignment = Alignment.Center) {
+                            CountdownRing(
+                                progress = 1f,
+                                activeColor = accentColor
+                            )
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = state.timeLeftSeconds.toString(),
+                                    style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                                Text("SECONDS", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.weight(1f))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Button(
+                                onClick = { viewModel.onEvent(WorkoutContract.UiEvent.TogglePause) },
+                                colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.height(48.dp)
+                            ) {
+                                Text(
+                                    text = if (state.isPaused) "RESUME" else "PAUSE",
+                                    color = AbsoluteBlack,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            Button(
+                                onClick = { viewModel.onEvent(WorkoutContract.UiEvent.NextExercise) },
+                                colors = ButtonDefaults.buttonColors(containerColor = AlertGold),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.height(48.dp)
+                            ) {
+                                Text("SKIP WARMUP", color = AbsoluteBlack, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+            is WorkoutContract.UiState.Cooldown -> {
+                val accentColor = Color(0xFF00E5FF) // Cool Cyber Teal
+                Box(modifier = Modifier.fillMaxSize()) {
+                    IconButton(
+                        onClick = {
+                            viewModel.onEvent(WorkoutContract.UiEvent.ExitWorkout)
+                            onNavigateBack()
+                        },
+                        modifier = Modifier.padding(16.dp).align(Alignment.TopStart)
+                    ) {
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Exit", tint = MaterialTheme.colorScheme.onBackground)
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 64.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .border(1.dp, accentColor, RoundedCornerShape(4.dp))
+                                .background(accentColor.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 12.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "COOLDOWN PHASE",
+                                color = accentColor,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodySmall,
+                                letterSpacing = 1.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .size(220.dp)
+                                .neonPanel(color = accentColor)
+                                .background(Color.Black, RoundedCornerShape(12.dp))
+                                .border(1.dp, accentColor.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data("https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3o0aWF3eWZia3h5cGtqa2h5d21tZHBkbmh2ZzI2d2pxeWw3NWk1NCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/X8z9Z4lT475P9Yw472/giphy.gif")
+                                    .crossfade(true)
+                                    .build(),
+                                imageLoader = imageLoader,
+                                contentDescription = "Cooldown Animation",
+                                modifier = Modifier.fillMaxSize().padding(12.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text(
+                            text = "LOWER YOUR HEART RATE",
+                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onBackground,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Lower your heart rate. Perform slow breathing, light torso twists, and static stretches for your legs and shoulders.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.Gray,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Box(contentAlignment = Alignment.Center) {
+                            CountdownRing(
+                                progress = 1f,
+                                activeColor = accentColor
+                            )
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = state.timeLeftSeconds.toString(),
+                                    style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                                Text("SECONDS", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.weight(1f))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Button(
+                                onClick = { viewModel.onEvent(WorkoutContract.UiEvent.TogglePause) },
+                                colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.height(48.dp)
+                            ) {
+                                Text(
+                                    text = if (state.isPaused) "RESUME" else "PAUSE",
+                                    color = AbsoluteBlack,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            Button(
+                                onClick = { viewModel.onEvent(WorkoutContract.UiEvent.NextExercise) },
+                                colors = ButtonDefaults.buttonColors(containerColor = AlertGold),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.height(48.dp)
+                            ) {
+                                Text("SKIP COOLDOWN", color = AbsoluteBlack, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
             is WorkoutContract.UiState.Setup -> {
                 Box(modifier = Modifier.fillMaxSize()) {
                     IconButton(

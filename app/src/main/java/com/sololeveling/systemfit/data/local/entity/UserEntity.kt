@@ -18,6 +18,7 @@ data class UserEntity(
     val bestStreak: Int,
     val theme: String,
     val targetWorkoutDaysPerWeek: Int,
+    val workoutDaysOfWeek: String = "2,3,4,5,6",
     val customActiveDurationSeconds: Int,
     val customRestDurationSeconds: Int,
     val lastWorkoutTimestamp: Long,

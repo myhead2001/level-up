@@ -27,6 +27,8 @@ import kotlin.math.max
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.LocalDate
+import com.sololeveling.systemfit.domain.model.hasMissedWorkoutDay
+
 
 @HiltViewModel
 class WorkoutViewModel @Inject constructor(
@@ -57,6 +59,8 @@ class WorkoutViewModel @Inject constructor(
     private var totalWorkoutSeconds = 0
     private var isPaused = false
     private var playerLevel = 1
+    private var isWarmupActive = false
+    private var isCooldownActive = false
 
     init {
         loadSetup()
@@ -72,15 +76,10 @@ class WorkoutViewModel @Inject constructor(
             val lastWorkout = user.lastWorkoutTimestamp
             var activeUser = user
 
-            if (lastWorkout > 0L) {
-                val lastDay = Instant.ofEpochMilli(lastWorkout).atZone(ZoneOffset.UTC).toLocalDate().toEpochDay()
-                val currentDay = Instant.ofEpochMilli(now).atZone(ZoneOffset.UTC).toLocalDate().toEpochDay()
-                val daysDiff = (currentDay - lastDay).toInt()
-                if (daysDiff >= 2) {
-                    // Missed an entire calendar day!
-                    activeUser = user.copy(penaltyActive = true, currentStreak = 0)
-                    userRepository.saveUser(activeUser)
-                }
+            if (!user.penaltyActive && user.hasMissedWorkoutDay(now)) {
+                // Missed a scheduled workout day!
+                activeUser = user.copy(penaltyActive = true, currentStreak = 0)
+                userRepository.saveUser(activeUser)
             }
 
             // 2. If penalty is active, redirect straight to Penalty Zone
@@ -120,12 +119,12 @@ class WorkoutViewModel @Inject constructor(
 
     private fun startQuest() {
         val quest = dailyQuest ?: return
-        totalWorkoutSeconds = quest.totalTargetRounds * quest.exercises.size * (quest.activeIntervalSeconds + quest.restIntervalSeconds)
+        totalWorkoutSeconds = quest.totalTargetRounds * quest.exercises.size * (quest.activeIntervalSeconds + quest.restIntervalSeconds) + 120
         currentRoundIndex = 1
         currentExerciseIndex = 0
         isResting = false
         isPaused = false
-        startNextInterval()
+        startWarmup()
     }
 
     private fun skipRest() {
@@ -224,11 +223,35 @@ class WorkoutViewModel @Inject constructor(
             } else {
                 startCountdown(state.timeLeftSeconds)
             }
+        } else if (state is WorkoutContract.UiState.Warmup) {
+            isPaused = !isPaused
+            _uiState.value = state.copy(isPaused = isPaused)
+            if (isPaused) {
+                timerJob?.cancel()
+            } else {
+                startWarmupCountdown(state.timeLeftSeconds)
+            }
+        } else if (state is WorkoutContract.UiState.Cooldown) {
+            isPaused = !isPaused
+            _uiState.value = state.copy(isPaused = isPaused)
+            if (isPaused) {
+                timerJob?.cancel()
+            } else {
+                startCooldownCountdown(state.timeLeftSeconds)
+            }
         }
     }
 
     private fun nextExercise() {
         timerJob?.cancel()
+        if (isWarmupActive) {
+            onWarmupComplete()
+            return
+        }
+        if (isCooldownActive) {
+            onCooldownComplete()
+            return
+        }
         val quest = dailyQuest ?: return
         isResting = false
         currentExerciseIndex++
@@ -241,19 +264,37 @@ class WorkoutViewModel @Inject constructor(
 
     private fun prevExercise() {
         timerJob?.cancel()
+        if (isWarmupActive) {
+            return
+        }
+        if (isCooldownActive) {
+            isCooldownActive = false
+            val quest = dailyQuest ?: return
+            currentRoundIndex = quest.totalTargetRounds
+            currentExerciseIndex = quest.exercises.size - 1
+            isResting = false
+            startNextInterval()
+            return
+        }
         isResting = false
         if (currentExerciseIndex > 0) {
             currentExerciseIndex--
+            startNextInterval()
         } else if (currentRoundIndex > 1) {
             currentRoundIndex--
             currentExerciseIndex = (dailyQuest?.exercises?.size ?: 1) - 1
+            startNextInterval()
+        } else {
+            startWarmup()
         }
-        startNextInterval()
     }
 
     private fun exitWorkout() {
         timerJob?.cancel()
         penaltyTimerJob?.cancel()
+        recoveryTimerJob?.cancel()
+        isWarmupActive = false
+        isCooldownActive = false
         loadSetup()
     }
 
@@ -266,7 +307,7 @@ class WorkoutViewModel @Inject constructor(
         val quest = dailyQuest ?: return
         
         if (currentRoundIndex > quest.totalTargetRounds) {
-            finishQuest()
+            startCooldown()
             return
         }
 
@@ -379,5 +420,68 @@ class WorkoutViewModel @Inject constructor(
         timerJob?.cancel()
         penaltyTimerJob?.cancel()
         recoveryTimerJob?.cancel()
+    }
+
+    private fun startWarmup() {
+        isWarmupActive = true
+        isCooldownActive = false
+        isPaused = false
+        _uiState.value = WorkoutContract.UiState.Warmup(60, isPaused = false)
+        startWarmupCountdown(60)
+    }
+
+    private fun startWarmupCountdown(durationSeconds: Int) {
+        timerJob?.cancel()
+        expectedEndTimeMillis = SystemClock.elapsedRealtime() + (durationSeconds * 1000)
+        timerJob = viewModelScope.launch {
+            while (SystemClock.elapsedRealtime() < expectedEndTimeMillis) {
+                if (isPaused) return@launch
+                val remaining = ((expectedEndTimeMillis - SystemClock.elapsedRealtime()) / 1000).toInt()
+                val currentState = _uiState.value
+                if (currentState is WorkoutContract.UiState.Warmup) {
+                    _uiState.value = currentState.copy(timeLeftSeconds = max(0, remaining))
+                }
+                delay(200)
+            }
+            onWarmupComplete()
+        }
+    }
+
+    private fun onWarmupComplete() {
+        isWarmupActive = false
+        currentRoundIndex = 1
+        currentExerciseIndex = 0
+        isResting = false
+        startNextInterval()
+    }
+
+    private fun startCooldown() {
+        isWarmupActive = false
+        isCooldownActive = true
+        isPaused = false
+        _uiState.value = WorkoutContract.UiState.Cooldown(60, isPaused = false)
+        startCooldownCountdown(60)
+    }
+
+    private fun startCooldownCountdown(durationSeconds: Int) {
+        timerJob?.cancel()
+        expectedEndTimeMillis = SystemClock.elapsedRealtime() + (durationSeconds * 1000)
+        timerJob = viewModelScope.launch {
+            while (SystemClock.elapsedRealtime() < expectedEndTimeMillis) {
+                if (isPaused) return@launch
+                val remaining = ((expectedEndTimeMillis - SystemClock.elapsedRealtime()) / 1000).toInt()
+                val currentState = _uiState.value
+                if (currentState is WorkoutContract.UiState.Cooldown) {
+                    _uiState.value = currentState.copy(timeLeftSeconds = max(0, remaining))
+                }
+                delay(200)
+            }
+            onCooldownComplete()
+        }
+    }
+
+    private fun onCooldownComplete() {
+        isCooldownActive = false
+        finishQuest()
     }
 }

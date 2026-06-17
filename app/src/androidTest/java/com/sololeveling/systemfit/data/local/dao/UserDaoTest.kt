@@ -49,10 +49,14 @@ class UserDaoTest {
             bestStreak = 2,
             theme = "SOLO_BLUE",
             targetWorkoutDaysPerWeek = 5,
+            workoutDaysOfWeek = "2,3,4,5,6",
             customActiveDurationSeconds = 0,
             customRestDurationSeconds = 0,
             lastWorkoutTimestamp = 0L,
-            penaltyActive = false
+            penaltyActive = false,
+            bpModeActive = true,
+            isDarkMode = true,
+            skipIntro = false
         )
         userDao.insertUser(user)
 
@@ -76,10 +80,14 @@ class UserDaoTest {
             bestStreak = 2,
             theme = "SOLO_BLUE",
             targetWorkoutDaysPerWeek = 5,
+            workoutDaysOfWeek = "2,3,4,5,6",
             customActiveDurationSeconds = 0,
             customRestDurationSeconds = 0,
             lastWorkoutTimestamp = 0L,
-            penaltyActive = false
+            penaltyActive = false,
+            bpModeActive = true,
+            isDarkMode = true,
+            skipIntro = false
         )
         userDao.insertUser(user)
 

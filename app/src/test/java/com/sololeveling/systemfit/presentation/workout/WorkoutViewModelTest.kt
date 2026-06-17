@@ -82,8 +82,21 @@ class WorkoutViewModelTest {
     }
 
     @Test
-    fun `start quest transitions to ActiveCombat`() = runTest {
+    fun `start quest transitions to Warmup`() = runTest {
         viewModel.onEvent(WorkoutContract.UiEvent.StartQuest)
+
+        viewModel.uiState.test {
+            val state = expectMostRecentItem()
+            assertThat(state).isInstanceOf(WorkoutContract.UiState.Warmup::class.java)
+            val warmupState = state as WorkoutContract.UiState.Warmup
+            assertThat(warmupState.timeLeftSeconds).isEqualTo(60)
+        }
+    }
+
+    @Test
+    fun `skipping warmup transitions to ActiveCombat`() = runTest {
+        viewModel.onEvent(WorkoutContract.UiEvent.StartQuest)
+        viewModel.onEvent(WorkoutContract.UiEvent.NextExercise) // skips warmup
 
         viewModel.uiState.test {
             val state = expectMostRecentItem()

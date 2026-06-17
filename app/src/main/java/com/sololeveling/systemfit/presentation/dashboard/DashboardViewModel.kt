@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sololeveling.systemfit.data.local.entity.WorkoutLogEntity
 import com.sololeveling.systemfit.domain.model.User
+import com.sololeveling.systemfit.domain.model.hasMissedWorkoutDay
 import com.sololeveling.systemfit.domain.repository.UserRepository
 import com.sololeveling.systemfit.domain.usecase.GenerateDailyQuestUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -44,6 +45,11 @@ class DashboardViewModel @Inject constructor(
             userState.collect { user ->
                 if (user != null) {
                     _dailyQuestState.value = generateDailyQuestUseCase(user)
+                    val now = System.currentTimeMillis()
+                    if (!user.penaltyActive && user.hasMissedWorkoutDay(now)) {
+                        val updatedUser = user.copy(penaltyActive = true, currentStreak = 0)
+                        userRepository.saveUser(updatedUser)
+                    }
                 }
             }
         }
@@ -149,8 +155,49 @@ class DashboardViewModel @Inject constructor(
             // Delete log
             userRepository.deleteWorkoutLog(logId)
             
+            // Filter out the deleted log in memory
+            val remainingLogs = logs.filter { it.logId != logId }
+            
+            // Recalculate lastWorkoutTimestamp
+            val newLastWorkoutTimestamp = remainingLogs.maxOfOrNull { it.timestamp } ?: 0L
+            
+            // Recalculate currentStreak
+            var currentStreak = 0
+            val completedLogs = remainingLogs
+                .filter { it.isCompleted && !it.isPenaltyZone }
+                .sortedByDescending { it.timestamp }
+            
+            if (completedLogs.isNotEmpty()) {
+                val today = java.time.LocalDate.now(java.time.ZoneOffset.UTC)
+                val mostRecentLogDate = java.time.Instant.ofEpochMilli(completedLogs.first().timestamp)
+                    .atZone(java.time.ZoneOffset.UTC)
+                    .toLocalDate()
+                
+                val daysDiff = java.time.temporal.ChronoUnit.DAYS.between(mostRecentLogDate, today).toInt()
+                if (daysDiff <= 1) {
+                    currentStreak = 1
+                    var lastDate = mostRecentLogDate
+                    for (i in 1 until completedLogs.size) {
+                        val logDate = java.time.Instant.ofEpochMilli(completedLogs[i].timestamp)
+                            .atZone(java.time.ZoneOffset.UTC)
+                            .toLocalDate()
+                        val diff = java.time.temporal.ChronoUnit.DAYS.between(logDate, lastDate).toInt()
+                        if (diff == 1) {
+                            currentStreak++
+                            lastDate = logDate
+                        } else if (diff > 1) {
+                            break
+                        }
+                    }
+                }
+            }
+            
             // Recalculate level and XP
-            val updatedUser = recalculateXpAndLevel(user, -targetLog.xpEarned)
+            val userWithNewStreak = user.copy(
+                lastWorkoutTimestamp = newLastWorkoutTimestamp,
+                currentStreak = currentStreak
+            )
+            val updatedUser = recalculateXpAndLevel(userWithNewStreak, -targetLog.xpEarned)
             userRepository.saveUser(updatedUser)
         }
     }
@@ -221,6 +268,23 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             val success = userRepository.restoreProfile(activeUserId)
             onResult(success)
+        }
+    }
+
+    fun updateWorkoutDaysOfWeek(days: String, count: Int) {
+        viewModelScope.launch {
+            val user = userState.value ?: return@launch
+            userRepository.saveUser(user.copy(
+                workoutDaysOfWeek = days,
+                targetWorkoutDaysPerWeek = count
+            ))
+        }
+    }
+
+    fun forceTriggerPenalty() {
+        viewModelScope.launch {
+            val user = userState.value ?: return@launch
+            userRepository.saveUser(user.copy(penaltyActive = true, currentStreak = 0))
         }
     }
 }

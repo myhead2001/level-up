@@ -16,7 +16,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Database(entities = [UserEntity::class, ExerciseEntity::class, WorkoutLogEntity::class], version = 5, exportSchema = false)
+@Database(entities = [UserEntity::class, ExerciseEntity::class, WorkoutLogEntity::class], version = 6, exportSchema = false)
 abstract class SystemDatabase : RoomDatabase() {
 
     abstract fun userDao(): UserDao
@@ -146,6 +146,7 @@ abstract class SystemDatabase : RoomDatabase() {
                 bestStreak = 0,
                 theme = "SOLO_BLUE",
                 targetWorkoutDaysPerWeek = 5,
+                workoutDaysOfWeek = "2,3,4,5,6",
                 customActiveDurationSeconds = 0,
                 customRestDurationSeconds = 0,
                 lastWorkoutTimestamp = 0L,

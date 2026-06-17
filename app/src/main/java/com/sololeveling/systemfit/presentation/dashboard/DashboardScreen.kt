@@ -43,6 +43,8 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 
 @Composable
 fun DashboardScreen(
@@ -172,7 +174,7 @@ fun DashboardScreen(
                             user = activeUser,
                             workoutLogs = workoutLogs,
                             onUpdateTheme = { viewModel.updateTheme(it) },
-                            onUpdateTargetDays = { viewModel.updateTargetDays(it) },
+                            onUpdateWorkoutDays = { days, count -> viewModel.updateWorkoutDaysOfWeek(days, count) },
                             onUpdateCustomTimers = { act, rst -> viewModel.updateCustomTimers(act, rst) },
                             onToggleBpMode = { viewModel.toggleBpMode() },
                             onToggleDarkMode = { viewModel.toggleDarkMode() },
@@ -182,7 +184,8 @@ fun DashboardScreen(
                             onBackupProfile = { viewModel.backupProfile() },
                             onRestoreProfile = { viewModel.restoreProfile(it) },
                             onDeleteWorkoutLog = { viewModel.deleteWorkoutLog(it) },
-                            onAddWorkoutLog = { timestamp, xp, duration -> viewModel.addManualWorkoutLog(timestamp, xp, true, duration) }
+                            onAddWorkoutLog = { timestamp, xp, duration -> viewModel.addManualWorkoutLog(timestamp, xp, true, duration) },
+                            onForceTriggerPenalty = { viewModel.forceTriggerPenalty() }
                         )
                     }
                 }
@@ -595,36 +598,137 @@ fun QuestGoalRow(name: String, progressText: String, completed: Boolean) {
 @Composable
 fun AnalyticsTabContent(user: User, logs: List<WorkoutLogEntity>) {
     val primaryColor = MaterialTheme.colorScheme.primary
+    val context = LocalContext.current
+    var activityFilter by remember { mutableStateOf("WEEK") } // "WEEK", "MONTH", "YEAR"
+    var weekOffset by remember { mutableStateOf(0) }
 
-    // Group logs by day of the week for the last 7 days
-    val weeklyXp = remember(logs) {
-        val xpList = FloatArray(7) { 0f }
-        val calendar = Calendar.getInstance()
-        for (i in 0..6) {
-            val targetDay = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -i) }
-            val totalXpForDay = logs.filter { log ->
-                val logCal = Calendar.getInstance().apply { timeInMillis = log.timestamp }
-                logCal.get(Calendar.YEAR) == targetDay.get(Calendar.YEAR) &&
-                        logCal.get(Calendar.DAY_OF_YEAR) == targetDay.get(Calendar.DAY_OF_YEAR)
-            }.sumOf { it.xpEarned }
-            xpList[6 - i] = totalXpForDay.toFloat()
-        }
-        // Fallback mock starter values if no logs exist
+    // Group logs by day/month based on selected filter
+    val activityData = remember(logs, activityFilter) {
         if (logs.isEmpty()) {
-            floatArrayOf(90f, 92f, 100f, 48f, 50f, 52f, 10f)
-        } else {
-            xpList
+            return@remember when (activityFilter) {
+                "WEEK" -> FloatArray(7) { 0f }
+                "MONTH" -> FloatArray(30) { 0f }
+                "YEAR" -> FloatArray(12) { 0f }
+                else -> FloatArray(7) { 0f }
+            }
+        }
+        val calendar = Calendar.getInstance()
+        when (activityFilter) {
+            "WEEK" -> {
+                val data = FloatArray(7)
+                for (i in 0..6) {
+                    val targetDay = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -i) }
+                    val dayXp = logs.filter { log ->
+                        val logCal = Calendar.getInstance().apply { timeInMillis = log.timestamp }
+                        logCal.get(Calendar.YEAR) == targetDay.get(Calendar.YEAR) &&
+                                logCal.get(Calendar.DAY_OF_YEAR) == targetDay.get(Calendar.DAY_OF_YEAR)
+                    }.sumOf { it.xpEarned }
+                    data[6 - i] = dayXp.toFloat()
+                }
+                data
+            }
+            "MONTH" -> {
+                val data = FloatArray(30)
+                for (i in 0..29) {
+                    val targetDay = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -i) }
+                    val dayXp = logs.filter { log ->
+                        val logCal = Calendar.getInstance().apply { timeInMillis = log.timestamp }
+                        logCal.get(Calendar.YEAR) == targetDay.get(Calendar.YEAR) &&
+                                logCal.get(Calendar.DAY_OF_YEAR) == targetDay.get(Calendar.DAY_OF_YEAR)
+                    }.sumOf { it.xpEarned }
+                    data[29 - i] = dayXp.toFloat()
+                }
+                data
+            }
+            "YEAR" -> {
+                val data = FloatArray(12)
+                for (i in 0..11) {
+                    val targetMonth = Calendar.getInstance().apply { add(Calendar.MONTH, -i) }
+                    val monthXp = logs.filter { log ->
+                        val logCal = Calendar.getInstance().apply { timeInMillis = log.timestamp }
+                        logCal.get(Calendar.YEAR) == targetMonth.get(Calendar.YEAR) &&
+                                logCal.get(Calendar.MONTH) == targetMonth.get(Calendar.MONTH)
+                    }.sumOf { it.xpEarned }
+                    data[11 - i] = monthXp.toFloat()
+                }
+                data
+            }
+            else -> FloatArray(7)
         }
     }
 
-    val daysOfWeek = remember {
-        val format = SimpleDateFormat("E", Locale.getDefault())
-        val days = mutableListOf<String>()
-        for (i in 0..6) {
-            val targetDay = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -i) }
-            days.add(format.format(targetDay.time).take(1))
+    val activityLabels = remember(activityFilter) {
+        when (activityFilter) {
+            "WEEK" -> {
+                val format = SimpleDateFormat("E", Locale.getDefault())
+                val days = mutableListOf<String>()
+                for (i in 0..6) {
+                    val targetDay = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -i) }
+                    days.add(format.format(targetDay.time).take(1)) // M, T, W...
+                }
+                days.reversed()
+            }
+            "MONTH" -> {
+                listOf("W1", "W2", "W3", "W4", "W5")
+            }
+            "YEAR" -> {
+                val format = SimpleDateFormat("MMM", Locale.getDefault())
+                val months = mutableListOf<String>()
+                for (i in 0..11) {
+                    val targetMonth = Calendar.getInstance().apply { add(Calendar.MONTH, -i) }
+                    months.add(format.format(targetMonth.time).take(1))
+                }
+                months.reversed()
+            }
+            else -> emptyList()
         }
-        days.reversed()
+    }
+
+    val todayXp = remember(logs) {
+        val today = Calendar.getInstance()
+        logs.filter { log ->
+            val logCal = Calendar.getInstance().apply { timeInMillis = log.timestamp }
+            logCal.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
+                    logCal.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR)
+        }.sumOf { it.xpEarned }
+    }
+
+    val avgDuration = remember(logs) {
+        if (logs.isEmpty()) 0.0 else logs.map { it.durationMinutes }.average()
+    }
+    val completionRate = remember(logs) {
+        if (logs.isEmpty()) 0.0 else (logs.count { it.isCompleted }.toDouble() / logs.size.toDouble()) * 100.0
+    }
+    val totalCalories = remember(logs, user.agi) {
+        if (logs.isEmpty()) 0 else {
+            val duration = logs.sumOf { it.durationMinutes }
+            (duration * (8.0 + user.agi * 0.1)).toInt()
+        }
+    }
+    val nextRankText = remember(user.level) {
+        when {
+            user.level < 10 -> "D-Rank (Lvl 10)"
+            user.level < 20 -> "C-Rank (Lvl 20)"
+            user.level < 30 -> "B-Rank (Lvl 30)"
+            user.level < 40 -> "A-Rank (Lvl 40)"
+            user.level < 50 -> "S-Rank (Lvl 50)"
+            else -> "Max S-Rank"
+        }
+    }
+
+    val weekText = remember(weekOffset) {
+        val startCal = Calendar.getInstance().apply {
+            add(Calendar.DAY_OF_YEAR, -weekOffset * 7 - 6)
+        }
+        val endCal = Calendar.getInstance().apply {
+            add(Calendar.DAY_OF_YEAR, -weekOffset * 7)
+        }
+        val sdf = SimpleDateFormat("MMM d", Locale.getDefault())
+        if (weekOffset == 0) {
+            "THIS WEEK (${sdf.format(startCal.time)} - ${sdf.format(endCal.time)})"
+        } else {
+            "${weekOffset} WEEKS AGO (${sdf.format(startCal.time)} - ${sdf.format(endCal.time)})"
+        }
     }
 
     LazyColumn(
@@ -634,7 +738,6 @@ fun AnalyticsTabContent(user: User, logs: List<WorkoutLogEntity>) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         item {
-            // Overview Navigation Bar Tabs
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -648,40 +751,10 @@ fun AnalyticsTabContent(user: User, logs: List<WorkoutLogEntity>) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Today XP calculation
-                val todayXp = remember(logs) {
-                    val today = Calendar.getInstance()
-                    logs.filter { log ->
-                        val logCal = Calendar.getInstance().apply { timeInMillis = log.timestamp }
-                        logCal.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
-                                logCal.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR)
-                    }.sumOf { it.xpEarned }
-                }
                 AnalyticsCard(title = "TODAY XP", value = todayXp.toString(), isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
                 Spacer(modifier = Modifier.width(8.dp))
                 AnalyticsCard(title = "TOTAL XP", value = (user.level * 1000 + user.currentXp).toString(), isDarkMode = user.isDarkMode, modifier = Modifier.weight(1f))
             }
-            val avgDuration = remember(logs) {
-                if (logs.isEmpty()) 15.0 else logs.map { it.durationMinutes }.average()
-            }
-            val completionRate = remember(logs) {
-                if (logs.isEmpty()) 100.0 else (logs.count { it.isCompleted }.toDouble() / logs.size.toDouble()) * 100.0
-            }
-            val totalCalories = remember(logs, user.agi) {
-                val duration = if (logs.isEmpty()) 105 else logs.sumOf { it.durationMinutes }
-                (duration * (8.0 + user.agi * 0.1)).toInt()
-            }
-            val nextRankText = remember(user.level) {
-                when {
-                    user.level < 10 -> "D-Rank (Lvl 10)"
-                    user.level < 20 -> "C-Rank (Lvl 20)"
-                    user.level < 30 -> "B-Rank (Lvl 30)"
-                    user.level < 40 -> "A-Rank (Lvl 40)"
-                    user.level < 50 -> "S-Rank (Lvl 50)"
-                    else -> "Max S-Rank"
-                }
-            }
-
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -713,15 +786,50 @@ fun AnalyticsTabContent(user: User, logs: List<WorkoutLogEntity>) {
         }
 
         item {
-            // Weekly Activity Header
-            Text(
-                text = "WEEKLY ACTIVITY",
-                color = MaterialTheme.colorScheme.onBackground,
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.titleMedium,
+            // Filter Buttons Header Row
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Start
-            )
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = when(activityFilter) {
+                        "WEEK" -> "WEEKLY ACTIVITY"
+                        "MONTH" -> "MONTHLY ACTIVITY"
+                        else -> "YEARLY ACTIVITY"
+                    },
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Start
+                )
+
+                // Toggle Buttons: WEEK, MONTH, YEAR
+                Row(
+                    modifier = Modifier.border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp)).background(Color.Black.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                ) {
+                    listOf("WEEK", "MONTH", "YEAR").forEach { f ->
+                        val isSel = activityFilter == f
+                        Box(
+                            modifier = Modifier
+                                .clickable {
+                                    activityFilter = f
+                                    SoundManager.playNavigation()
+                                }
+                                .background(if (isSel) primaryColor.copy(alpha = 0.2f) else Color.Transparent, RoundedCornerShape(8.dp))
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = f,
+                                color = if (isSel) primaryColor else Color.Gray,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
             Spacer(modifier = Modifier.height(16.dp))
 
             // Canvas Graph
@@ -736,10 +844,10 @@ fun AnalyticsTabContent(user: User, logs: List<WorkoutLogEntity>) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val width = size.width
                     val height = size.height
-                    val maxVal = maxOf(weeklyXp.maxOrNull() ?: 100f, 100f)
+                    val maxVal = maxOf(activityData.maxOrNull() ?: 100f, 100f)
 
-                    val points = weeklyXp.mapIndexed { index, value ->
-                        val x = (width / 6f) * index
+                    val points = activityData.mapIndexed { index, value ->
+                        val x = if (activityData.size > 1) (width / (activityData.size - 1).toFloat()) * index else 0f
                         val y = height - (value / maxVal) * (height - 40f) - 20f
                         Offset(x, y)
                     }
@@ -750,39 +858,41 @@ fun AnalyticsTabContent(user: User, logs: List<WorkoutLogEntity>) {
                     drawLine(Color.DarkGray.copy(alpha = 0.2f), Offset(0f, height * 0.75f), Offset(width, height * 0.75f))
 
                     // Draw smooth curve
-                    val path = Path()
-                    path.moveTo(points[0].x, points[0].y)
-                    for (i in 0 until points.size - 1) {
-                        val p0 = points[i]
-                        val p1 = points[i + 1]
-                        val cpX1 = p0.x + (p1.x - p0.x) / 2f
-                        val cpY1 = p0.y
-                        val cpX2 = p0.x + (p1.x - p0.x) / 2f
-                        val cpY2 = p1.y
-                        path.cubicTo(cpX1, cpY1, cpX2, cpY2, p1.x, p1.y)
-                    }
+                    if (points.size > 1) {
+                        val path = Path()
+                        path.moveTo(points[0].x, points[0].y)
+                        for (i in 0 until points.size - 1) {
+                            val p0 = points[i]
+                            val p1 = points[i + 1]
+                            val cpX1 = p0.x + (p1.x - p0.x) / 2f
+                            val cpY1 = p0.y
+                            val cpX2 = p0.x + (p1.x - p0.x) / 2f
+                            val cpY2 = p1.y
+                            path.cubicTo(cpX1, cpY1, cpX2, cpY2, p1.x, p1.y)
+                        }
 
-                    // Fill area under the path
-                    val fillPath = Path()
-                    fillPath.addPath(path)
-                    fillPath.lineTo(points.last().x, height)
-                    fillPath.lineTo(points.first().x, height)
-                    fillPath.close()
+                        // Fill area under the path
+                        val fillPath = Path()
+                        fillPath.addPath(path)
+                        fillPath.lineTo(points.last().x, height)
+                        fillPath.lineTo(points.first().x, height)
+                        fillPath.close()
 
-                    drawPath(
-                        path = fillPath,
-                        brush = Brush.verticalGradient(
-                            colors = listOf(primaryColor.copy(alpha = 0.3f), Color.Transparent),
-                            startY = 0f,
-                            endY = height
+                        drawPath(
+                            path = fillPath,
+                            brush = Brush.verticalGradient(
+                                colors = listOf(primaryColor.copy(alpha = 0.3f), Color.Transparent),
+                                startY = 0f,
+                                endY = height
+                            )
                         )
-                    )
 
-                    drawPath(
-                        path = path,
-                        color = primaryColor,
-                        style = Stroke(width = 8f, cap = StrokeCap.Round)
-                    )
+                        drawPath(
+                            path = path,
+                            color = primaryColor,
+                            style = Stroke(width = 8f, cap = StrokeCap.Round)
+                        )
+                    }
 
                     // Draw glow points
                     points.forEach { pt ->
@@ -792,13 +902,14 @@ fun AnalyticsTabContent(user: User, logs: List<WorkoutLogEntity>) {
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
-            // Graph Labels (Days of Week)
+
+            // Graph Labels Row
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                daysOfWeek.forEach { day ->
-                    Text(day, color = Color.Gray, fontSize = 12.sp, modifier = Modifier.width(24.dp), textAlign = TextAlign.Center)
+                activityLabels.forEach { label ->
+                    Text(label, color = Color.Gray, fontSize = 12.sp, modifier = Modifier.width(24.dp), textAlign = TextAlign.Center)
                 }
             }
             Spacer(modifier = Modifier.height(24.dp))
@@ -806,35 +917,88 @@ fun AnalyticsTabContent(user: User, logs: List<WorkoutLogEntity>) {
 
         item {
             // Consistency Grid Header
-            Text(
-                text = "CONSISTENCY",
-                color = MaterialTheme.colorScheme.onBackground,
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.titleMedium,
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Start
-            )
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "CONSISTENCY",
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium
+                )
+
+                // Chevron navigation arrows for swiping through weeks
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { weekOffset++; SoundManager.playNavigation() }) {
+                        Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Prev Week", tint = primaryColor)
+                    }
+                    Text(
+                        text = weekText,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    IconButton(
+                        onClick = { if (weekOffset > 0) weekOffset--; SoundManager.playNavigation() },
+                        enabled = weekOffset > 0
+                    ) {
+                        Icon(
+                            Icons.Default.KeyboardArrowRight,
+                            contentDescription = "Next Week",
+                            tint = if (weekOffset > 0) primaryColor else Color.Gray
+                        )
+                    }
+                }
+            }
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Consistency Row Grid
+            // Swipeable Consistency Row Grid
+            var dragAmountTotal by remember { mutableStateOf(0f) }
+            val weekDaysOfWeekLabels = listOf("S", "M", "T", "W", "T", "F", "S")
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .border(1.dp, Color.DarkGray.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
                     .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                    .pointerInput(Unit) {
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                if (dragAmountTotal > 50f) {
+                                    // Swipe right -> go back in time
+                                    weekOffset++
+                                    SoundManager.playNavigation()
+                                } else if (dragAmountTotal < -50f) {
+                                    // Swipe left -> go closer to today
+                                    if (weekOffset > 0) {
+                                        weekOffset--
+                                        SoundManager.playNavigation()
+                                    }
+                                }
+                                dragAmountTotal = 0f
+                            },
+                            onHorizontalDrag = { change, dragAmount ->
+                                change.consume()
+                                dragAmountTotal += dragAmount
+                            }
+                        )
+                    }
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceAround
             ) {
-                val calendar = Calendar.getInstance()
                 for (i in 0..6) {
-                    val targetDay = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -6 + i) }
+                    val targetDay = Calendar.getInstance().apply {
+                        add(Calendar.DAY_OF_YEAR, -weekOffset * 7 - 6 + i)
+                    }
                     val isDayCompleted = logs.any { log ->
                         val logCal = Calendar.getInstance().apply { timeInMillis = log.timestamp }
                         log.isCompleted &&
                                 logCal.get(Calendar.YEAR) == targetDay.get(Calendar.YEAR) &&
                                 logCal.get(Calendar.DAY_OF_YEAR) == targetDay.get(Calendar.DAY_OF_YEAR)
                     }
-                    val dayName = daysOfWeek[i]
+                    val dayName = weekDaysOfWeekLabels[targetDay.get(Calendar.DAY_OF_WEEK) - 1]
 
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Box(
@@ -889,7 +1053,7 @@ fun ProfileTabContent(
     user: User,
     workoutLogs: List<WorkoutLogEntity>,
     onUpdateTheme: (String) -> Unit,
-    onUpdateTargetDays: (Int) -> Unit,
+    onUpdateWorkoutDays: (String, Int) -> Unit,
     onUpdateCustomTimers: (Int, Int) -> Unit,
     onToggleBpMode: () -> Unit,
     onToggleDarkMode: () -> Unit,
@@ -899,7 +1063,8 @@ fun ProfileTabContent(
     onBackupProfile: () -> Unit,
     onRestoreProfile: ((Boolean) -> Unit) -> Unit,
     onDeleteWorkoutLog: (Long) -> Unit,
-    onAddWorkoutLog: (Long, Int, Int) -> Unit
+    onAddWorkoutLog: (Long, Int, Int) -> Unit,
+    onForceTriggerPenalty: () -> Unit
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val context = LocalContext.current
@@ -953,41 +1118,73 @@ fun ProfileTabContent(
                 expanded = isProfileExpanded,
                 onToggle = { isProfileExpanded = !isProfileExpanded; SoundManager.playNavigation() }
             ) {
-                // Workout Days Goal
                 Text("TARGET WORKOUT DAYS PER WEEK", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 Spacer(modifier = Modifier.height(8.dp))
+
+                // Active days selection (S M T W T F S)
+                val daysOfWeekLabels = listOf("S", "M", "T", "W", "T", "F", "S")
+                val selectedDaysList = remember(user.workoutDaysOfWeek) {
+                    user.workoutDaysOfWeek.split(",").filter { it.isNotEmpty() }.mapNotNull { it.toIntOrNull() }.toSet()
+                }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp))
-                        .padding(8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                        .background(if (user.isDarkMode) Color.Black.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(
-                        onClick = {
-                            if (workoutDays > 3) {
-                                workoutDays--
-                                onUpdateTargetDays(workoutDays)
-                            }
-                        },
-                        enabled = workoutDays > 3
-                    ) {
-                        Text("-", color = if (workoutDays > 3) primaryColor else Color.Gray, fontSize = 24.sp)
-                    }
-                    Text("$workoutDays Days", color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    IconButton(
-                        onClick = {
-                            if (workoutDays < 7) {
-                                workoutDays++
-                                onUpdateTargetDays(workoutDays)
-                            }
-                        },
-                        enabled = workoutDays < 7
-                    ) {
-                        Text("+", color = if (workoutDays < 7) primaryColor else Color.Gray, fontSize = 24.sp)
+                    for (i in 1..7) {
+                        val isSelected = selectedDaysList.contains(i)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .border(
+                                    1.dp,
+                                    if (isSelected) primaryColor else Color.DarkGray,
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .background(
+                                    if (isSelected) primaryColor.copy(alpha = 0.2f) else Color.Transparent,
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .clickable {
+                                    val newSelected = if (isSelected) {
+                                        if (selectedDaysList.size > 1) {
+                                            selectedDaysList - i
+                                        } else {
+                                            Toast.makeText(context, "Must select at least 1 workout day!", Toast.LENGTH_SHORT).show()
+                                            selectedDaysList
+                                        }
+                                    } else {
+                                        selectedDaysList + i
+                                    }
+                                    val daysStr = newSelected.sorted().joinToString(",")
+                                    onUpdateWorkoutDays(daysStr, newSelected.size)
+                                    SoundManager.playNavigation()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = daysOfWeekLabels[i - 1],
+                                color = if (isSelected) primaryColor else Color.Gray,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                        }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "${selectedDaysList.size} Days selected per week",
+                    color = Color.Gray,
+                    fontSize = 12.sp,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
             }
         }
 
@@ -1301,6 +1498,20 @@ fun ProfileTabContent(
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = {
+                        onForceTriggerPenalty()
+                        Toast.makeText(context, "Penalty Protocol Triggered!", Toast.LENGTH_SHORT).show()
+                        SoundManager.playPenalty()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF3333)),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth().height(45.dp).border(1.dp, Color.Red, RoundedCornerShape(8.dp))
+                ) {
+                    Text("FORCE TRIGGER PENALTY", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
             }
         }
 
@@ -1360,6 +1571,14 @@ fun ProfileTabContent(
                 ) {
                     Text("RESET SYSTEM DATA", color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, fontSize = 12.sp)
                 }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Backup & Restore file location:\n/data/data/com.sololeveling.systemfit/shared_prefs/system_fit_backup.xml",
+                    color = Color.Gray,
+                    fontSize = 11.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
             Spacer(modifier = Modifier.height(32.dp))
         }

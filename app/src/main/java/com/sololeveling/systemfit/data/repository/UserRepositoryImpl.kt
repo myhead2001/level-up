@@ -60,6 +60,7 @@ class UserRepositoryImpl @Inject constructor(
                                 bestStreak = 0,
                                 theme = "SOLO_BLUE",
                                 targetWorkoutDaysPerWeek = 5,
+                                workoutDaysOfWeek = "2,3,4,5,6",
                                 customActiveDurationSeconds = 0,
                                 customRestDurationSeconds = 0,
                                 lastWorkoutTimestamp = 0L,
@@ -111,6 +112,7 @@ class UserRepositoryImpl @Inject constructor(
                 bestStreak = 0,
                 theme = "SOLO_BLUE",
                 targetWorkoutDaysPerWeek = 5,
+                workoutDaysOfWeek = "2,3,4,5,6",
                 customActiveDurationSeconds = 0,
                 customRestDurationSeconds = 0,
                 lastWorkoutTimestamp = 0L,
@@ -137,6 +139,7 @@ class UserRepositoryImpl @Inject constructor(
             putInt("backup_bestStreak", user.bestStreak)
             putString("backup_theme", user.theme)
             putInt("backup_targetWorkoutDaysPerWeek", user.targetWorkoutDaysPerWeek)
+            putString("backup_workoutDaysOfWeek", user.workoutDaysOfWeek)
             putInt("backup_customActiveDurationSeconds", user.customActiveDurationSeconds)
             putInt("backup_customRestDurationSeconds", user.customRestDurationSeconds)
             putLong("backup_lastWorkoutTimestamp", user.lastWorkoutTimestamp)
@@ -164,6 +167,7 @@ class UserRepositoryImpl @Inject constructor(
             bestStreak = sharedPrefs.getInt("backup_bestStreak", 0),
             theme = sharedPrefs.getString("backup_theme", "SOLO_BLUE") ?: "SOLO_BLUE",
             targetWorkoutDaysPerWeek = sharedPrefs.getInt("backup_targetWorkoutDaysPerWeek", 5),
+            workoutDaysOfWeek = sharedPrefs.getString("backup_workoutDaysOfWeek", "2,3,4,5,6") ?: "2,3,4,5,6",
             customActiveDurationSeconds = sharedPrefs.getInt("backup_customActiveDurationSeconds", 0),
             customRestDurationSeconds = sharedPrefs.getInt("backup_customRestDurationSeconds", 0),
             lastWorkoutTimestamp = sharedPrefs.getLong("backup_lastWorkoutTimestamp", 0L),
@@ -189,6 +193,7 @@ class UserRepositoryImpl @Inject constructor(
         bestStreak = bestStreak,
         theme = theme,
         targetWorkoutDaysPerWeek = targetWorkoutDaysPerWeek,
+        workoutDaysOfWeek = workoutDaysOfWeek,
         customActiveDurationSeconds = customActiveDurationSeconds,
         customRestDurationSeconds = customRestDurationSeconds,
         lastWorkoutTimestamp = lastWorkoutTimestamp,
@@ -211,6 +216,7 @@ class UserRepositoryImpl @Inject constructor(
         bestStreak = bestStreak,
         theme = theme,
         targetWorkoutDaysPerWeek = targetWorkoutDaysPerWeek,
+        workoutDaysOfWeek = workoutDaysOfWeek,
         customActiveDurationSeconds = customActiveDurationSeconds,
         customRestDurationSeconds = customRestDurationSeconds,
         lastWorkoutTimestamp = lastWorkoutTimestamp,
