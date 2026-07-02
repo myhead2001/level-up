@@ -5,8 +5,10 @@ import java.time.ZoneOffset
 
 
 data class User(
-    val id: String = "player_1",
+    val id: String = java.util.UUID.randomUUID().toString(),
     val name: String = "Sung Jin-Woo",
+    val role: String = "player",
+    val classJob: String = "Shadow Monarch",
     val level: Int = 1,
     val currentXp: Int = 0,
     val str: Int = 10,

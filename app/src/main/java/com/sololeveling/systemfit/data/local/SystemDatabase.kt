@@ -16,7 +16,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Database(entities = [UserEntity::class, ExerciseEntity::class, WorkoutLogEntity::class], version = 6, exportSchema = false)
+@Database(entities = [UserEntity::class, ExerciseEntity::class, WorkoutLogEntity::class], version = 7, exportSchema = false)
 abstract class SystemDatabase : RoomDatabase() {
 
     abstract fun userDao(): UserDao
@@ -136,6 +136,8 @@ abstract class SystemDatabase : RoomDatabase() {
             userDao.insertUser(UserEntity(
                 id = userId,
                 name = "Sung Jin-Woo",
+                role = "player",
+                classJob = "Shadow Monarch",
                 level = 1,
                 currentXp = 0,
                 str = 10,

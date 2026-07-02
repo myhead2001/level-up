@@ -5,9 +5,10 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "users")
 data class UserEntity(
-    @PrimaryKey
-    val id: String,
-    val name: String,
+    @PrimaryKey val id: String = "player_1",
+    val name: String = "Sung Jin-Woo",
+    val role: String = "player",
+    val classJob: String = "Shadow Monarch",
     val level: Int,
     val currentXp: Int,
     val str: Int,

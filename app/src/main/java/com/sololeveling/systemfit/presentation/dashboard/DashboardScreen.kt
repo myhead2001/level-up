@@ -53,7 +53,9 @@ import android.os.Build
 fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel(),
     onNavigateToWorkout: () -> Unit,
-    onNavigateToProfile: () -> Unit
+    onNavigateToProfile: () -> Unit,
+    onNavigateToCommander: () -> Unit,
+    onSignOut: () -> Unit
 ) {
     val user by viewModel.userState.collectAsState()
     val workoutLogs by viewModel.workoutLogsState.collectAsState()
@@ -193,7 +195,9 @@ fun DashboardScreen(
                             onRestoreProfile = { viewModel.restoreProfile(it) },
                             onDeleteWorkoutLog = { viewModel.deleteWorkoutLog(it) },
                             onAddWorkoutLog = { timestamp, xp, duration -> viewModel.addManualWorkoutLog(timestamp, xp, true, duration) },
-                            onForceTriggerPenalty = { viewModel.forceTriggerPenalty() }
+                            onForceTriggerPenalty = { viewModel.forceTriggerPenalty() },
+                            onNavigateToCommander = onNavigateToCommander,
+                            onSignOut = onSignOut
                         )
                     }
                 }
@@ -1080,7 +1084,9 @@ fun ProfileTabContent(
     onRestoreProfile: ((Boolean) -> Unit) -> Unit,
     onDeleteWorkoutLog: (Long) -> Unit,
     onAddWorkoutLog: (Long, Int, Int) -> Unit,
-    onForceTriggerPenalty: () -> Unit
+    onForceTriggerPenalty: () -> Unit,
+    onNavigateToCommander: () -> Unit,
+    onSignOut: () -> Unit
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val context = LocalContext.current
@@ -1874,6 +1880,40 @@ fun ProfileTabContent(
                         }
                     }
                 }
+            }
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+
+        // Commander Terminal (Admin Only)
+        if (user.role == "Commander") {
+            item {
+                Button(
+                    onClick = { onNavigateToCommander(); SoundManager.playNavigation() },
+                    colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth().height(50.dp)
+                ) {
+                    Icon(Icons.Default.Star, contentDescription = "Commander Terminal", tint = AbsoluteBlack)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("COMMANDER TERMINAL", color = AbsoluteBlack, fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+
+        // Sign Out
+        item {
+            OutlinedButton(
+                onClick = { onSignOut(); SoundManager.playNavigation() },
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.LightGray),
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray)
+            ) {
+                Text(
+                    text = "SIGN OUT",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
             }
             Spacer(modifier = Modifier.height(32.dp))
         }

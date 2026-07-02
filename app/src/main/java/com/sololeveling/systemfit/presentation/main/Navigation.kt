@@ -52,7 +52,20 @@ fun SystemFitNavigation(
         composable("dashboard") {
             DashboardScreen(
                 onNavigateToWorkout = { navController.navigate("workout") },
-                onNavigateToProfile = { navController.navigate("profile") }
+                onNavigateToProfile = { navController.navigate("profile") },
+                onNavigateToCommander = { navController.navigate("commander_terminal") },
+                onSignOut = {
+                    authViewModel.signOut()
+                    navController.navigate("login") {
+                        popUpTo(0)
+                    }
+                }
+            )
+        }
+        composable("commander_terminal") {
+            com.sololeveling.systemfit.presentation.admin.CommanderScreen(
+                supabase = supabase,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
         composable("workout") {

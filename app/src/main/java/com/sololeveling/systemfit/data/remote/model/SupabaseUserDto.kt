@@ -5,6 +5,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class SupabaseUserDto(
     val id: String = "",
+    val name: String = "Player",
+    val role: String = "player",
     val level: Int = 1,
     val currentXp: Int = 0,
     val str: Int = 10,

@@ -13,6 +13,8 @@ class RemoteSyncSource @Inject constructor(
         try {
             val dto = SupabaseUserDto(
                 id = user.id,
+                name = user.name,
+                role = user.role,
                 level = user.level,
                 currentXp = user.currentXp,
                 str = user.str,
