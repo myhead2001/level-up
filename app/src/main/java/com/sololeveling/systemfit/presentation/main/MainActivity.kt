@@ -14,6 +14,8 @@ import com.sololeveling.systemfit.presentation.theme.SystemFitTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
+import io.github.jan.supabase.auth.handleDeeplinks
+
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
@@ -25,6 +27,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        supabase.handleDeeplinks(intent)
         
         // Setup Immersive Fullscreen Mode (Hide Status & Navigation Bars)
         WindowCompat.setDecorFitsSystemWindows(window, false)
