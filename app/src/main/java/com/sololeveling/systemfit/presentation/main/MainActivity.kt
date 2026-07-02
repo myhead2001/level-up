@@ -20,6 +20,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var userRepository: UserRepository
 
+    @Inject
+    lateinit var supabase: io.github.jan.supabase.SupabaseClient
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -39,7 +42,7 @@ class MainActivity : ComponentActivity() {
             val rank = user?.rank ?: "E-Rank"
 
             SystemFitTheme(themeName = themeName, isDarkMode = isDarkMode, rank = rank) {
-                SystemFitNavigation(startDestination = startDestination)
+                SystemFitNavigation(supabase = supabase, startDestination = startDestination)
             }
         }
     }

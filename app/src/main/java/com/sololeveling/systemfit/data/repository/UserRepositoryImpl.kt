@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.map
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.launch
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.auth.auth
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -20,12 +22,22 @@ class UserRepositoryImpl @Inject constructor(
     private val userDao: UserDao,
     private val workoutLogDao: WorkoutLogDao,
     private val remoteSyncSource: RemoteSyncSource,
+    private val supabase: SupabaseClient,
     @ApplicationContext private val context: Context
 ) : UserRepository {
 
     private var activeUserIdCache: String? = null
 
     override fun getActiveUserId(): String {
+        // Tie the active user ID strictly to the Supabase authenticated session
+        val authUser = supabase.auth.currentUserOrNull()?.id
+        
+        if (authUser != null) {
+            activeUserIdCache = authUser
+            return authUser
+        }
+
+        // Fallback for edge cases where auth state is still resolving
         if (activeUserIdCache != null) return activeUserIdCache!!
         val sharedPrefs = context.getSharedPreferences("system_fit_user_prefs", Context.MODE_PRIVATE)
         var userId = sharedPrefs.getString("active_user_id", null)

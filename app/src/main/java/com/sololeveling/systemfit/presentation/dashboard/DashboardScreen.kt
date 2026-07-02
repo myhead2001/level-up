@@ -52,7 +52,8 @@ import android.os.Build
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel(),
-    onNavigateToWorkout: () -> Unit
+    onNavigateToWorkout: () -> Unit,
+    onNavigateToProfile: () -> Unit
 ) {
     val user by viewModel.userState.collectAsState()
     val workoutLogs by viewModel.workoutLogsState.collectAsState()
@@ -125,8 +126,8 @@ fun DashboardScreen(
                     NavigationBarItem(
                         selected = selectedTab == 3,
                         onClick = { selectedTab = 3; SoundManager.playNavigation() },
-                        icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
-                        label = { Text("Profile") },
+                        icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
+                        label = { Text("Settings") },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = primaryColor,
                             selectedTextColor = primaryColor,
@@ -168,7 +169,8 @@ fun DashboardScreen(
                                 viewModel.allocateStatPoint(it)
                                 SoundManager.playStatBoost()
                             },
-                            onNavigateToWorkout = onNavigateToWorkout
+                            onNavigateToWorkout = onNavigateToWorkout,
+                            onNavigateToProfile = onNavigateToProfile
                         )
                         1 -> QuestsTabContent(
                             user = activeUser,
@@ -221,7 +223,8 @@ fun HomeTabContent(
     onRenameClick: () -> Unit,
     onInfoClick: () -> Unit,
     onAllocateStat: (String) -> Unit,
-    onNavigateToWorkout: () -> Unit
+    onNavigateToWorkout: () -> Unit,
+    onNavigateToProfile: () -> Unit
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
 
@@ -246,8 +249,13 @@ fun HomeTabContent(
                     style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                     color = primaryColor
                 )
-                IconButton(onClick = onRenameClick) {
-                    Icon(Icons.Default.Edit, contentDescription = "Rename", tint = primaryColor)
+                Row {
+                    IconButton(onClick = onRenameClick) {
+                        Icon(Icons.Default.Edit, contentDescription = "Rename", tint = primaryColor)
+                    }
+                    IconButton(onClick = onNavigateToProfile) {
+                        Icon(Icons.Default.AccountCircle, contentDescription = "Profile", tint = primaryColor)
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
