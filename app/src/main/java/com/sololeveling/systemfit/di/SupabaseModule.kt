@@ -16,6 +16,8 @@ import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.postgrest
 import javax.inject.Singleton
 
+import com.sololeveling.systemfit.BuildConfig
+
 @Module
 @InstallIn(SingletonComponent::class)
 object SupabaseModule {
@@ -24,8 +26,8 @@ object SupabaseModule {
     @Singleton
     fun provideSupabaseClient(): SupabaseClient {
         return createSupabaseClient(
-            supabaseUrl = "https://htlxgfzyfldtzwgzxbto.supabase.co",
-            supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0bHhnZnp5ZmxkdHp3Z3p4YnRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI5Njg3OTYsImV4cCI6MjA5ODU0NDc5Nn0.Vi6hkuf9puVhqWRui3j2xhMiEFxcXDpI7Q01IwdH0ZY"
+            supabaseUrl = BuildConfig.SUPABASE_URL,
+            supabaseKey = BuildConfig.SUPABASE_ANON_KEY
         ) {
             install(Postgrest)
             install(Auth) {
@@ -33,7 +35,7 @@ object SupabaseModule {
                 host = "login-callback"
             }
             install(ComposeAuth) {
-                googleNativeLogin(serverClientId = "141897586357-p6a9cg62e3ppr4hcmoados67robkn9j6.apps.googleusercontent.com")
+                googleNativeLogin(serverClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID)
             }
         }
     }
