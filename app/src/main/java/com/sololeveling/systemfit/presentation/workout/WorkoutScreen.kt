@@ -513,7 +513,7 @@ fun WorkoutScreen(
                             } else {
                                 AsyncImage(
                                     model = ImageRequest.Builder(LocalContext.current)
-                                        .data(state.currentExercise.gifUrl)
+                                        .data(WorkoutMediaConfig.getGifUrl(state.currentExercise.id, state.currentExercise.gifUrl))
                                         .crossfade(true)
                                         .build(),
                                     imageLoader = imageLoader,
