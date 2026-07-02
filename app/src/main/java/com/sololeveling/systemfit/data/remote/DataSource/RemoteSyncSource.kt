@@ -29,4 +29,15 @@ class RemoteSyncSource @Inject constructor(
             e.printStackTrace()
         }
     }
+
+    suspend fun fetchUser(userId: String): SupabaseUserDto? {
+        return try {
+            supabase.postgrest["users"].select {
+                filter { eq("id", userId) }
+            }.decodeSingleOrNull<SupabaseUserDto>()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
 }

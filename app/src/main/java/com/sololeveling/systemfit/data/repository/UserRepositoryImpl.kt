@@ -54,37 +54,64 @@ class UserRepositoryImpl @Inject constructor(
     }
 
     override fun getUserStream(userId: String): Flow<User?> {
-        return userDao.getUserStream(userId).map { entity ->
-            if (entity == null) {
-                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-                    if (userDao.getUser(userId) == null) {
-                        userDao.insertUser(
-                            UserEntity(
-                                id = userId,
-                                name = "Sung Jin-Woo",
-                                level = 1,
-                                currentXp = 0,
-                                str = 10,
-                                vit = 10,
-                                agi = 10,
-                                availableStatPoints = 0,
-                                currentStreak = 0,
-                                bestStreak = 0,
-                                theme = "SOLO_BLUE",
-                                targetWorkoutDaysPerWeek = 5,
-                                workoutDaysOfWeek = "2,3,4,5,6",
-                                customActiveDurationSeconds = 0,
-                                customRestDurationSeconds = 0,
-                                lastWorkoutTimestamp = 0L,
-                                penaltyActive = false,
-                                bpModeActive = false
-                            )
-                        )
-                    }
-                }
+        // Sync down from remote to ensure role and stats are up to date
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            val remoteUser = remoteSyncSource.fetchUser(userId)
+            val localUser = userDao.getUser(userId)
+            
+            if (remoteUser != null) {
+                userDao.insertUser(
+                    UserEntity(
+                        id = remoteUser.id,
+                        name = remoteUser.name,
+                        role = remoteUser.role,
+                        level = remoteUser.level,
+                        currentXp = remoteUser.currentXp,
+                        str = remoteUser.str,
+                        vit = remoteUser.vit,
+                        agi = remoteUser.agi,
+                        availableStatPoints = remoteUser.availableStatPoints,
+                        currentStreak = remoteUser.currentStreak,
+                        bestStreak = localUser?.bestStreak ?: 0,
+                        theme = localUser?.theme ?: "SOLO_BLUE",
+                        targetWorkoutDaysPerWeek = localUser?.targetWorkoutDaysPerWeek ?: 5,
+                        workoutDaysOfWeek = localUser?.workoutDaysOfWeek ?: "2,3,4,5,6",
+                        customActiveDurationSeconds = localUser?.customActiveDurationSeconds ?: 0,
+                        customRestDurationSeconds = localUser?.customRestDurationSeconds ?: 0,
+                        lastWorkoutTimestamp = localUser?.lastWorkoutTimestamp ?: 0L,
+                        penaltyActive = localUser?.penaltyActive ?: false,
+                        bpModeActive = localUser?.bpModeActive ?: false,
+                        isDarkMode = localUser?.isDarkMode ?: true,
+                        skipIntro = localUser?.skipIntro ?: false
+                    )
+                )
+            } else if (localUser == null) {
+                userDao.insertUser(
+                    UserEntity(
+                        id = userId,
+                        name = "Sung Jin-Woo",
+                        level = 1,
+                        currentXp = 0,
+                        str = 10,
+                        vit = 10,
+                        agi = 10,
+                        availableStatPoints = 0,
+                        currentStreak = 0,
+                        bestStreak = 0,
+                        theme = "SOLO_BLUE",
+                        targetWorkoutDaysPerWeek = 5,
+                        workoutDaysOfWeek = "2,3,4,5,6",
+                        customActiveDurationSeconds = 0,
+                        customRestDurationSeconds = 0,
+                        lastWorkoutTimestamp = 0L,
+                        penaltyActive = false,
+                        bpModeActive = false
+                    )
+                )
             }
-            entity?.toDomainModel()
         }
+        
+        return userDao.getUserStream(userId).map { it?.toDomainModel() }
     }
 
     override suspend fun getUser(userId: String): User? {
