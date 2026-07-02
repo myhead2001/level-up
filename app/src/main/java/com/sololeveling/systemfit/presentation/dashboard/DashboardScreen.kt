@@ -197,7 +197,8 @@ fun DashboardScreen(
                             onAddWorkoutLog = { timestamp, xp, duration -> viewModel.addManualWorkoutLog(timestamp, xp, true, duration) },
                             onForceTriggerPenalty = { viewModel.forceTriggerPenalty() },
                             onNavigateToCommander = onNavigateToCommander,
-                            onSignOut = onSignOut
+                            onSignOut = onSignOut,
+                            onSubmitFeedback = { category, content, deviceInfo -> viewModel.submitFeedback(category, content, deviceInfo) }
                         )
                     }
                 }
@@ -1086,7 +1087,8 @@ fun ProfileTabContent(
     onAddWorkoutLog: (Long, Int, Int) -> Unit,
     onForceTriggerPenalty: () -> Unit,
     onNavigateToCommander: () -> Unit,
-    onSignOut: () -> Unit
+    onSignOut: () -> Unit,
+    onSubmitFeedback: (String, String, String) -> Unit
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val context = LocalContext.current
@@ -1106,6 +1108,7 @@ fun ProfileTabContent(
     var useFormulaTimers by remember { mutableStateOf(user.customActiveDurationSeconds == 0) }
     var showRankDialogFor by remember { mutableStateOf<String?>(null) }
     var showAddLogDialog by remember { mutableStateOf(false) }
+    var showFeedbackDialog by remember { mutableStateOf(false) }
 
     var isProfileExpanded by remember { mutableStateOf(false) }
     var isLookExpanded by remember { mutableStateOf(false) }
@@ -1884,6 +1887,21 @@ fun ProfileTabContent(
             Spacer(modifier = Modifier.height(32.dp))
         }
 
+        // Beta Feedback Button
+        item {
+            Button(
+                onClick = { showFeedbackDialog = true; SoundManager.playNavigation() },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00FFB2)), // Vibrant Green
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.fillMaxWidth().height(50.dp)
+            ) {
+                Icon(Icons.Default.Info, contentDescription = "Beta Feedback", tint = AbsoluteBlack)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("SUBMIT BETA FEEDBACK", color = AbsoluteBlack, fontWeight = FontWeight.Bold)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
         // Commander Terminal (Admin Only)
         if (user.role == "Commander") {
             item {
@@ -2060,6 +2078,103 @@ fun ProfileTabContent(
         }
     }
 
+    if (showFeedbackDialog) {
+        var feedbackCategory by remember { mutableStateOf("Bug Report") }
+        var feedbackContent by remember { mutableStateOf("") }
+        val categories = listOf("Bug Report", "Feature Request", "Gameplay/UI", "Other")
+
+        Dialog(onDismissRequest = { showFeedbackDialog = false }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(2.dp, Color(0xFF00FFB2), RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.background, RoundedCornerShape(8.dp))
+                    .padding(24.dp)
+            ) {
+                Column(horizontalAlignment = Alignment.Start) {
+                    Text(
+                        text = "SUBMIT BETA FEEDBACK",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color(0xFF00FFB2),
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text("CATEGORY", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        categories.chunked(2).forEach { rowCategories ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                rowCategories.forEach { category ->
+                                    val isSelected = feedbackCategory == category
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .border(1.dp, if (isSelected) Color(0xFF00FFB2) else Color.DarkGray, RoundedCornerShape(8.dp))
+                                            .background(if (isSelected) Color(0xFF00FFB2).copy(alpha = 0.2f) else Color.Transparent, RoundedCornerShape(8.dp))
+                                            .clickable { feedbackCategory = category; SoundManager.playNavigation() }
+                                            .padding(8.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(category, color = if (isSelected) Color(0xFF00FFB2) else Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Text("DETAILS", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    OutlinedTextField(
+                        value = feedbackContent,
+                        onValueChange = { feedbackContent = it },
+                        modifier = Modifier.fillMaxWidth().height(120.dp),
+                        colors = TextFieldDefaults.outlinedTextFieldColors(
+                            focusedBorderColor = Color(0xFF00FFB2),
+                            unfocusedBorderColor = Color.DarkGray,
+                            cursorColor = Color(0xFF00FFB2)
+                        ),
+                        placeholder = { Text("Describe the issue or feature...", color = Color.Gray) }
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        TextButton(onClick = { showFeedbackDialog = false }) {
+                            Text("CANCEL", color = Color.Gray)
+                        }
+                        Button(
+                            onClick = {
+                                if (feedbackContent.isNotBlank()) {
+                                    val deviceInfo = "Model: ${android.os.Build.MODEL} | OS: ${android.os.Build.VERSION.RELEASE}"
+                                    onSubmitFeedback(feedbackCategory, feedbackContent, deviceInfo)
+                                    SoundManager.playLevelUp()
+                                    Toast.makeText(context, "Feedback submitted! Thank you hunter.", Toast.LENGTH_SHORT).show()
+                                    showFeedbackDialog = false
+                                } else {
+                                    Toast.makeText(context, "Please provide details.", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00FFB2))
+                        ) {
+                            Text("SUBMIT", color = AbsoluteBlack, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable

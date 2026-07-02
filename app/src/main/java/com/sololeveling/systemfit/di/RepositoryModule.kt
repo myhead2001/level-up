@@ -22,4 +22,9 @@ abstract class RepositoryModule {
     abstract fun bindExerciseRepository(
         exerciseRepositoryImpl: ExerciseRepositoryImpl
     ): ExerciseRepository
+
+    @Binds
+    abstract fun bindFeedbackRepository(
+        feedbackRepositoryImpl: com.sololeveling.systemfit.data.repository.FeedbackRepositoryImpl
+    ): com.sololeveling.systemfit.domain.repository.FeedbackRepository
 }

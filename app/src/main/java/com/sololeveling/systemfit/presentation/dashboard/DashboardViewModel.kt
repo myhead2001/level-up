@@ -15,9 +15,12 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.sololeveling.systemfit.domain.repository.FeedbackRepository
+
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val userRepository: UserRepository,
+    private val feedbackRepository: FeedbackRepository,
     private val generateDailyQuestUseCase: GenerateDailyQuestUseCase
 ) : ViewModel() {
 
@@ -285,6 +288,16 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             val user = userState.value ?: return@launch
             userRepository.saveUser(user.copy(penaltyActive = true, currentStreak = 0))
+        }
+    }
+
+    fun submitFeedback(category: String, content: String, deviceInfo: String) {
+        viewModelScope.launch {
+            try {
+                feedbackRepository.submitFeedback(activeUserId, category, content, deviceInfo)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 }
