@@ -92,9 +92,9 @@ fun getThemeColorScheme(themeName: String, isDarkMode: Boolean, rank: String) = 
         tertiary = primaryColor,
         background = Color(0xFFF8FAFC),
         surface = surfaceColor,
-        onPrimary = Color.White,
+        onPrimary = Color(0xFF0F172A), // Dark text on light primary backgrounds
         onSecondary = Color.Black,
-        onTertiary = Color.White,
+        onTertiary = Color(0xFF0F172A),
         onBackground = Color(0xFF0F172A),
         onSurface = Color(0xFF1E293B),
     )

@@ -11,6 +11,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -559,8 +560,13 @@ fun WorkoutScreen(
 
                         // Timer Circle & Countdown
                         Box(contentAlignment = Alignment.Center) {
+                            val animatedProgress by animateFloatAsState(
+                                targetValue = if (state.totalPhaseSeconds > 0) state.timeLeftSeconds.toFloat() / state.totalPhaseSeconds.toFloat() else 0f,
+                                animationSpec = tween(1000, easing = LinearEasing),
+                                label = "timer_progress"
+                            )
                             CountdownRing(
-                                progress = 1f, // Static/full ring simplified
+                                progress = animatedProgress,
                                 activeColor = accentColor
                             )
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -754,18 +760,32 @@ fun WorkoutScreen(
                 }
             }
             is WorkoutContract.UiState.ControlledRecovery -> {
-                val infiniteTransition = rememberInfiniteTransition(label = "recovery_breathing")
-                val scale by infiniteTransition.animateFloat(
-                    initialValue = 0.8f,
-                    targetValue = 1.2f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(3500),
-                        repeatMode = RepeatMode.Reverse
-                    ),
-                    label = "breathing_scale"
-                )
+                val scale = remember { Animatable(0.8f) }
+                var isExhaling by remember { mutableStateOf(false) }
 
-                val breathingText = if (scale > 1.0f) "EXHALE\n(NASAL)" else "INHALE\n(NASAL)"
+                LaunchedEffect(Unit) {
+                    val toneGen = android.media.ToneGenerator(android.media.AudioManager.STREAM_MUSIC, 100)
+                    try {
+                        while (true) {
+                            isExhaling = false
+                            toneGen.startTone(android.media.ToneGenerator.TONE_PROP_PROMPT, 150)
+                            scale.animateTo(
+                                targetValue = 1.2f,
+                                animationSpec = tween(durationMillis = 3500)
+                            )
+                            isExhaling = true
+                            toneGen.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 150)
+                            scale.animateTo(
+                                targetValue = 0.8f,
+                                animationSpec = tween(durationMillis = 3500)
+                            )
+                        }
+                    } finally {
+                        toneGen.release()
+                    }
+                }
+
+                val breathingText = if (isExhaling) "EXHALE\n(NASAL)" else "INHALE\n(NASAL)"
                 val recoveryColor = Color(0xFF00E5FF)
 
                 Column(
@@ -822,7 +842,7 @@ fun WorkoutScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size((120 * scale).dp)
+                                .size((120 * scale.value).dp)
                                 .background(recoveryColor.copy(alpha = 0.15f), RoundedCornerShape(100.dp))
                                 .border(2.dp, recoveryColor.copy(alpha = 0.7f), RoundedCornerShape(100.dp))
                         )
@@ -910,6 +930,7 @@ fun WorkoutScreen(
                 var showRewardsDialog by remember { mutableStateOf(false) }
 
                 LaunchedEffect(Unit) {
+                    SoundManager.playQuestComplete()
                     SoundManager.playWindowOpen()
                 }
 
@@ -933,9 +954,13 @@ fun WorkoutScreen(
                                 .neonPanel(color = primaryColor)
                                 .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f), RoundedCornerShape(8.dp))
                                 .border(1.dp, primaryColor.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                                .padding(24.dp)
+                                .padding(24.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
                                 Box(
                                     modifier = Modifier
                                         .border(1.dp, primaryColor, RoundedCornerShape(4.dp))
@@ -988,6 +1013,7 @@ fun WorkoutScreen(
                         Spacer(modifier = Modifier.height(64.dp))
                         Button(
                             onClick = {
+                                SoundManager.stopLevelUp()
                                 showRewardsDialog = true
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = primaryColor),

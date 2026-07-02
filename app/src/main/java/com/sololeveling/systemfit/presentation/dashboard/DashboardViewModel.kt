@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 
 import com.sololeveling.systemfit.domain.repository.FeedbackRepository
@@ -58,17 +59,22 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    private val statAllocationMutex = kotlinx.coroutines.sync.Mutex()
+
     fun allocateStatPoint(stat: String) {
         viewModelScope.launch {
-            val user = userState.value ?: return@launch
-            if (user.availableStatPoints > 0) {
-                val updatedUser = when (stat.uppercase()) {
-                    "STR" -> user.copy(str = user.str + 1, availableStatPoints = user.availableStatPoints - 1)
-                    "VIT" -> user.copy(vit = user.vit + 1, availableStatPoints = user.availableStatPoints - 1)
-                    "AGI" -> user.copy(agi = user.agi + 1, availableStatPoints = user.availableStatPoints - 1)
-                    else -> user
+            statAllocationMutex.withLock {
+                // Read fresh from the database to prevent stale-state race condition
+                val user = userRepository.getUser(activeUserId) ?: return@launch
+                if (user.availableStatPoints > 0) {
+                    val updatedUser = when (stat.uppercase()) {
+                        "STR" -> user.copy(str = user.str + 1, availableStatPoints = user.availableStatPoints - 1)
+                        "VIT" -> user.copy(vit = user.vit + 1, availableStatPoints = user.availableStatPoints - 1)
+                        "AGI" -> user.copy(agi = user.agi + 1, availableStatPoints = user.availableStatPoints - 1)
+                        else -> user
+                    }
+                    userRepository.saveUser(updatedUser)
                 }
-                userRepository.saveUser(updatedUser)
             }
         }
     }
@@ -295,6 +301,36 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 feedbackRepository.submitFeedback(activeUserId, category, content, deviceInfo)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    suspend fun getUserFeedback(): List<com.sololeveling.systemfit.data.remote.model.FeedbackWithUserDto> {
+        return try {
+            val allFeedback = feedbackRepository.getAllFeedback()
+            allFeedback.filter { it.userId == activeUserId }.sortedByDescending { it.createdAt }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    fun updateFeedback(id: String, content: String) {
+        viewModelScope.launch {
+            try {
+                feedbackRepository.updateFeedback(id, content)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun deleteFeedback(id: String) {
+        viewModelScope.launch {
+            try {
+                feedbackRepository.deleteFeedback(id)
             } catch (e: Exception) {
                 e.printStackTrace()
             }

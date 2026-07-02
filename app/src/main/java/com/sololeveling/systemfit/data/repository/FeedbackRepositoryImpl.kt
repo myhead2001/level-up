@@ -35,6 +35,26 @@ class FeedbackRepositoryImpl @Inject constructor(
         supabase.postgrest["feedbacks"].insert(insertMap)
     }
 
+    override suspend fun updateFeedback(id: String, content: String) {
+        supabase.postgrest["feedbacks"].update(
+            {
+                set("content", content)
+            }
+        ) {
+            filter {
+                eq("id", id)
+            }
+        }
+    }
+
+    override suspend fun deleteFeedback(id: String) {
+        supabase.postgrest["feedbacks"].delete {
+            filter {
+                eq("id", id)
+            }
+        }
+    }
+
     override suspend fun getAllFeedback(): List<FeedbackWithUserDto> {
         return supabase.postgrest["feedbacks"]
             .select(columns = Columns.raw("*, users(name)"))

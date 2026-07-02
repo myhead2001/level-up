@@ -332,6 +332,7 @@ class WorkoutViewModel @Inject constructor(
                 isRestPeriod = isResting,
                 timeLeftSeconds = duration,
                 totalTimeLeftSeconds = totalWorkoutSeconds,
+                totalPhaseSeconds = duration,
                 isPaused = isPaused,
                 isBpModeActive = isBpMode
             )

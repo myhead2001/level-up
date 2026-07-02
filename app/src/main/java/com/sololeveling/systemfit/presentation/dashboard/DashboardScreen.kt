@@ -8,6 +8,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -49,6 +51,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.activity.compose.rememberLauncherForActivityResult
 import android.os.Build
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel(),
@@ -60,10 +63,18 @@ fun DashboardScreen(
     val user by viewModel.userState.collectAsState()
     val workoutLogs by viewModel.workoutLogsState.collectAsState()
     val dailyQuest by viewModel.dailyQuestState.collectAsState()
-    var selectedTab by remember { mutableStateOf(0) }
+    val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 4 })
+    val selectedTab = pagerState.currentPage
+    val coroutineScope = rememberCoroutineScope()
+
+    // Handle back gesture: go to first tab instead of exiting app
+    androidx.activity.compose.BackHandler(enabled = selectedTab != 0) {
+        coroutineScope.launch { pagerState.animateScrollToPage(0) }
+    }
 
     var showRenameDialog by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
+    var showMyFeedbackDialog by remember { mutableStateOf(false) }
 
     val primaryColor = MaterialTheme.colorScheme.primary
 
@@ -88,7 +99,10 @@ fun DashboardScreen(
                 ) {
                     NavigationBarItem(
                         selected = selectedTab == 0,
-                        onClick = { selectedTab = 0; SoundManager.playNavigation() },
+                        onClick = { 
+                            coroutineScope.launch { pagerState.animateScrollToPage(0) }
+                            SoundManager.playNavigation() 
+                        },
                         icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
                         label = { Text("Home") },
                         colors = NavigationBarItemDefaults.colors(
@@ -101,7 +115,10 @@ fun DashboardScreen(
                     )
                     NavigationBarItem(
                         selected = selectedTab == 1,
-                        onClick = { selectedTab = 1; SoundManager.playNavigation() },
+                        onClick = { 
+                            coroutineScope.launch { pagerState.animateScrollToPage(1) }
+                            SoundManager.playNavigation() 
+                        },
                         icon = { Icon(Icons.Default.List, contentDescription = "Quests") },
                         label = { Text("Quests") },
                         colors = NavigationBarItemDefaults.colors(
@@ -114,7 +131,10 @@ fun DashboardScreen(
                     )
                     NavigationBarItem(
                         selected = selectedTab == 2,
-                        onClick = { selectedTab = 2; SoundManager.playNavigation() },
+                        onClick = { 
+                            coroutineScope.launch { pagerState.animateScrollToPage(2) }
+                            SoundManager.playNavigation() 
+                        },
                         icon = { Icon(Icons.Default.Star, contentDescription = "Analytics") },
                         label = { Text("Analytics") },
                         colors = NavigationBarItemDefaults.colors(
@@ -127,7 +147,10 @@ fun DashboardScreen(
                     )
                     NavigationBarItem(
                         selected = selectedTab == 3,
-                        onClick = { selectedTab = 3; SoundManager.playNavigation() },
+                        onClick = { 
+                            coroutineScope.launch { pagerState.animateScrollToPage(3) }
+                            SoundManager.playNavigation() 
+                        },
                         icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
                         label = { Text("Settings") },
                         colors = NavigationBarItemDefaults.colors(
@@ -147,20 +170,8 @@ fun DashboardScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                AnimatedContent(
-                    targetState = selectedTab,
-                    transitionSpec = {
-                        if (targetState > initialState) {
-                            (slideInHorizontally { width -> width } + fadeIn()).togetherWith(
-                                slideOutHorizontally { width -> -width } + fadeOut())
-                        } else {
-                            (slideInHorizontally { width -> -width } + fadeIn()).togetherWith(
-                                slideOutHorizontally { width -> width } + fadeOut())
-                        }.using(
-                            SizeTransform(clip = false)
-                        )
-                    },
-                    label = "tab_transitions"
+                androidx.compose.foundation.pager.HorizontalPager(
+                    state = pagerState
                 ) { targetTab ->
                     when (targetTab) {
                         0 -> HomeTabContent(
@@ -198,7 +209,8 @@ fun DashboardScreen(
                             onForceTriggerPenalty = { viewModel.forceTriggerPenalty() },
                             onNavigateToCommander = onNavigateToCommander,
                             onSignOut = onSignOut,
-                            onSubmitFeedback = { category, content, deviceInfo -> viewModel.submitFeedback(category, content, deviceInfo) }
+                            onSubmitFeedback = { category, content, deviceInfo -> viewModel.submitFeedback(category, content, deviceInfo) },
+                            onViewMyFeedback = { showMyFeedbackDialog = true }
                         )
                     }
                 }
@@ -218,6 +230,13 @@ fun DashboardScreen(
 
         if (showInfoDialog) {
             InfoDialog(onDismiss = { showInfoDialog = false })
+        }
+
+        if (showMyFeedbackDialog) {
+            MyFeedbackDialog(
+                viewModel = viewModel,
+                onDismiss = { showMyFeedbackDialog = false }
+            )
         }
     }
 }
@@ -1088,7 +1107,8 @@ fun ProfileTabContent(
     onForceTriggerPenalty: () -> Unit,
     onNavigateToCommander: () -> Unit,
     onSignOut: () -> Unit,
-    onSubmitFeedback: (String, String, String) -> Unit
+    onSubmitFeedback: (String, String, String) -> Unit,
+    onViewMyFeedback: () -> Unit
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val context = LocalContext.current
@@ -1900,6 +1920,17 @@ fun ProfileTabContent(
                 Text("SUBMIT BETA FEEDBACK", color = AbsoluteBlack, fontWeight = FontWeight.Bold)
             }
             Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = { onViewMyFeedback(); SoundManager.playNavigation() },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)), // Cyan
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.fillMaxWidth().height(50.dp)
+            ) {
+                Icon(Icons.Default.List, contentDescription = "My Feedback", tint = AbsoluteBlack)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("MY SUBMITTED REPORTS", color = AbsoluteBlack, fontWeight = FontWeight.Bold)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
         }
 
         // Commander Terminal (Admin Only)
@@ -2064,7 +2095,7 @@ fun ProfileTabContent(
                         Button(
                             onClick = {
                                 onChangeStartRank(selectedRank)
-                                SoundManager.playLevelUp()
+                                SoundManager.playStatBoost()
                                 Toast.makeText(context, "Rank updated to ${selectedRank}-Rank!", Toast.LENGTH_SHORT).show()
                                 showRankDialogFor = null
                             },
@@ -2159,7 +2190,7 @@ fun ProfileTabContent(
                                 if (feedbackContent.isNotBlank()) {
                                     val deviceInfo = "Model: ${android.os.Build.MODEL} | OS: ${android.os.Build.VERSION.RELEASE}"
                                     onSubmitFeedback(feedbackCategory, feedbackContent, deviceInfo)
-                                    SoundManager.playLevelUp()
+                                    SoundManager.playQuestComplete()
                                     Toast.makeText(context, "Feedback submitted! Thank you hunter.", Toast.LENGTH_SHORT).show()
                                     showFeedbackDialog = false
                                 } else {
@@ -2369,6 +2400,113 @@ fun SettingsFolder(
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
                 content()
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MyFeedbackDialog(
+    viewModel: DashboardViewModel,
+    onDismiss: () -> Unit
+) {
+    var feedbackList by remember { mutableStateOf<List<com.sololeveling.systemfit.data.remote.model.FeedbackWithUserDto>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    val coroutineScope = rememberCoroutineScope()
+    
+    LaunchedEffect(Unit) {
+        feedbackList = viewModel.getUserFeedback()
+        isLoading = false
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface,
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+            modifier = Modifier.fillMaxWidth().height(500.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "MY SUBMITTED REPORTS",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (isLoading) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    }
+                } else if (feedbackList.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("No reports found.", color = Color.Gray)
+                    }
+                } else {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(feedbackList) { feedback ->
+                            var isEditing by remember { mutableStateOf(false) }
+                            var editContent by remember { mutableStateOf(feedback.content) }
+                            
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(1.dp, Color.Gray.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                                    .padding(12.dp)
+                            ) {
+                                Column {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(feedback.category, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        Row {
+                                            IconButton(
+                                                onClick = { isEditing = !isEditing },
+                                                modifier = Modifier.size(24.dp)
+                                            ) {
+                                                Icon(Icons.Default.Edit, contentDescription = "Edit", tint = Color.Gray)
+                                            }
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            IconButton(
+                                                onClick = {
+                                                    viewModel.deleteFeedback(feedback.id)
+                                                    feedbackList = feedbackList.filter { it.id != feedback.id }
+                                                },
+                                                modifier = Modifier.size(24.dp)
+                                            ) {
+                                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red)
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    if (isEditing) {
+                                        OutlinedTextField(
+                                            value = editContent,
+                                            onValueChange = { editContent = it },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            textStyle = androidx.compose.ui.text.TextStyle(color = MaterialTheme.colorScheme.onSurface)
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Button(
+                                            onClick = {
+                                                viewModel.updateFeedback(feedback.id, editContent)
+                                                isEditing = false
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                        ) {
+                                            Text("Save", color = AbsoluteBlack)
+                                        }
+                                    } else {
+                                        Text(editContent, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

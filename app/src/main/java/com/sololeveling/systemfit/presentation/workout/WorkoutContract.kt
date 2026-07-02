@@ -14,14 +14,15 @@ interface WorkoutContract {
             val isRestPeriod: Boolean,
             val timeLeftSeconds: Int,
             val totalTimeLeftSeconds: Int,
+            val totalPhaseSeconds: Int, // Added for timer ring animation
             val isPaused: Boolean = false,
             val isBpModeActive: Boolean = false
         ) : UiState
-        data class PenaltyZone(val timeLeftSeconds: Int) : UiState
-        data class ControlledRecovery(val timeLeftSeconds: Int) : UiState
+        data class PenaltyZone(val timeLeftSeconds: Int, val totalPhaseSeconds: Int = 30) : UiState
+        data class ControlledRecovery(val timeLeftSeconds: Int, val totalPhaseSeconds: Int = 180) : UiState
         data class Victory(val xpEarned: Int, val levelUp: Boolean, val playerLevel: Int) : UiState
-        data class Warmup(val timeLeftSeconds: Int, val isPaused: Boolean = false) : UiState
-        data class Cooldown(val timeLeftSeconds: Int, val isPaused: Boolean = false) : UiState
+        data class Warmup(val timeLeftSeconds: Int, val totalPhaseSeconds: Int = 60, val isPaused: Boolean = false) : UiState
+        data class Cooldown(val timeLeftSeconds: Int, val totalPhaseSeconds: Int = 60, val isPaused: Boolean = false) : UiState
     }
 
     sealed interface UiEvent {
