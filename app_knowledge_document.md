@@ -49,13 +49,11 @@ Implements domain repository interfaces, manages Room local database caches, and
     *   [UserEntity.kt](file:///C:/Users/renny/OneDrive/Documents/GitHub/level-up/app/src/main/java/com/sololeveling/systemfit/data/local/entity/UserEntity.kt) / [ExerciseEntity.kt](file:///C:/Users/renny/OneDrive/Documents/GitHub/level-up/app/src/main/java/com/sololeveling/systemfit/data/local/entity/ExerciseEntity.kt) / [WorkoutLogEntity.kt](file:///C:/Users/renny/OneDrive/Documents/GitHub/level-up/app/src/main/java/com/sololeveling/systemfit/data/local/entity/WorkoutLogEntity.kt)
 *   **Repository Implementations:**
     *   [UserRepositoryImpl.kt](file:///C:/Users/renny/OneDrive/Documents/GitHub/level-up/app/src/main/java/com/sololeveling/systemfit/data/repository/UserRepositoryImpl.kt) / [ExerciseRepositoryImpl.kt](file:///C:/Users/renny/OneDrive/Documents/GitHub/level-up/app/src/main/java/com/sololeveling/systemfit/data/repository/ExerciseRepositoryImpl.kt)
-*   **Remote Sync Source:**
-    *   [RemoteSyncSource.kt](file:///C:/Users/renny/OneDrive/Documents/GitHub/level-up/app/src/main/java/com/sololeveling/systemfit/data/remote/DataSource/RemoteSyncSource.kt) / [FirestoreUserDto.kt](file:///C:/Users/renny/OneDrive/Documents/GitHub/level-up/app/src/main/java/com/sololeveling/systemfit/data/remote/model/FirestoreUserDto.kt): Offline-tolerant Firestore sync channel.
 
 #### 📂 DI Layer (`com.sololeveling.systemfit.di`)
 Configures Hilt dependency injection scopes.
-*   [DatabaseModule.kt](file:///C:/Users/renny/OneDrive/Documents/GitHub/level-up/app/src/main/java/com/sololeveling/systemfit/di/DatabaseModule.kt): Provides Room database, DAO providers, and seeds default exercises.
-*   [FirebaseModule.kt](file:///C:/Users/renny/OneDrive/Documents/GitHub/level-up/app/src/main/java/com/sololeveling/systemfit/di/FirebaseModule.kt): Provides Firebase Firestore references.
+*   [AppModule.kt](file:///C:/Users/renny/OneDrive/Documents/GitHub/level-up/app/src/main/java/com/sololeveling/systemfit/di/AppModule.kt): Application-level configurations (e.g., coroutine dispatchers).
+*   [DatabaseModule.kt](file:///C:/Users/renny/OneDrive/Documents/GitHub/level-up/app/src/main/java/com/sololeveling/systemfit/di/DatabaseModule.kt): Provides Room database and DAO instances.
 *   [RepositoryModule.kt](file:///C:/Users/renny/OneDrive/Documents/GitHub/level-up/app/src/main/java/com/sololeveling/systemfit/di/RepositoryModule.kt): Binds repository interfaces to implementations.
 
 #### 📂 Presentation Layer (`com.sololeveling.systemfit.presentation`)

@@ -75,10 +75,10 @@ dependencies {
     kapt("com.google.dagger:hilt-compiler:$hiltVersion")
     implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
 
-    // Firebase (BOM)
-    implementation(platform("com.google.firebase:firebase-bom:32.7.2"))
-    implementation("com.google.firebase:firebase-auth-ktx")
-    implementation("com.google.firebase:firebase-firestore-ktx")
+    // Supabase (BOM)
+    implementation(platform("io.github.jan-tennert.supabase:bom:3.0.0"))
+    implementation("io.github.jan-tennert.supabase:postgrest-kt")
+    implementation("io.github.jan-tennert.supabase:auth-kt")
 
     // Image/GIF Loading
     implementation("io.coil-kt:coil-compose:2.5.0")
@@ -141,9 +141,10 @@ The AI must build out the repository using this granular Clean Architecture stru
 com.sololeveling.systemfit
 │
 ├── di
-│   ├── DatabaseModule.kt          # Room DB, DAOs, and Shared Prefs injection
-│   ├── FirebaseModule.kt          # Firebase Auth and Firestore injection
-│   └── RepositoryModule.kt        # Binds interfaces to implementations
+│   ├── AppModule.kt
+│   ├── DatabaseModule.kt          # Room Database injection
+│   ├── RepositoryModule.kt        # Repository injection
+│   └── SupabaseModule.kt          # Supabase injections
 │
 ├── data
 │   ├── local
